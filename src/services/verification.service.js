@@ -186,6 +186,33 @@ export const approveDriverVerification = async ({ driverUserId, adminUserId }) =
 export const rejectDriverVerification = async ({ driverUserId, adminUserId, documentType, reason }) => {
   await ensureDriverExists(driverUserId);
 
+  if (!documentType) {
+    // Admin rejected the driver's account generally (no single document specified)
+    await Verification.updateMany(
+      { driverId: driverUserId, reviewStatus: { $in: ["pending", "under_review"] } },
+      { $set: { reviewStatus: "rejected", remarks: reason } }
+    );
+
+    const driver = await Driver.findOneAndUpdate(
+      { userId: driverUserId },
+      { $set: { verificationStatus: "rejected", availabilityStatus: false, verificationReason: reason } },
+      { new: true }
+    );
+
+    emitToUser(String(driverUserId), "driver:verification_status", {
+      status: "rejected",
+      reason,
+      reviewedBy: String(adminUserId),
+      timestamp: new Date().toISOString()
+    });
+
+    return {
+      driverId: String(driverUserId),
+      status: "rejected",
+      reason
+    };
+  }
+
   const targetDoc = await Verification.findOne({ driverId: driverUserId, documentType });
   if (!targetDoc) {
     throw makeError(`Document ${documentType} not found for driver`, 404);
@@ -208,7 +235,7 @@ export const rejectDriverVerification = async ({ driverUserId, adminUserId, docu
 
   await Driver.findOneAndUpdate(
     { userId: driverUserId },
-    { $set: { verificationStatus: "rejected", availabilityStatus: false } }
+    { $set: { verificationStatus: "rejected", availabilityStatus: false, verificationReason: reason } }
   );
 
   emitToUser(String(driverUserId), "driver:verification_status", {

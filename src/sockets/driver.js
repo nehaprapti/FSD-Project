@@ -17,7 +17,14 @@ const runEvent = async ({ socket, eventName, callback, action }) => {
       callback({ success: true, data: result });
     }
   } catch (error) {
-    socket.emit("socket:error", toSocketErrorPayload(eventName, error));
+    const payload = toSocketErrorPayload(eventName, error);
+    socket.emit("socket:error", payload);
+    // also emit the generic 'error' event for tests/clients that listen for it
+    try {
+      socket.emit("error", payload);
+    } catch (e) {
+      // some clients treat 'error' specially; guard against throwing here
+    }
     if (typeof callback === "function") {
       callback({ success: false, message: error.message });
     }

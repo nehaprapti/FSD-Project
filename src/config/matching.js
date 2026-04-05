@@ -9,4 +9,9 @@ export const MATCHING_CONFIG = {
   maxCandidates: Math.max(1, toNumber(process.env.MATCHING_MAX_CANDIDATES, 10))
 };
 
+// Shared-ride defaults
+MATCHING_CONFIG.sharedPickupMaxKm = toNumber(process.env.SHARED_PICKUP_MAX_KM, 2);
+MATCHING_CONFIG.sharedDropMaxKm = toNumber(process.env.SHARED_DROP_MAX_KM, 3);
+MATCHING_CONFIG.maxSharedGroupSeats = Math.max(2, toNumber(process.env.MAX_SHARED_GROUP_SEATS, 4));
+
 export default MATCHING_CONFIG;

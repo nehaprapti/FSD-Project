@@ -12,7 +12,7 @@ const router = Router();
 router.post("/signup/passenger", validateRequired(["name", "email", "phone", "password"]), signupPassengerController);
 router.post(
 	"/signup/driver",
-	validateRequired(["name", "email", "phone", "password", "vehicleInfo", "licenseInfo"]),
+	validateRequired(["name", "email", "phone", "password"]),
 	signupDriverController
 );
 router.post("/login", validateRequired(["email", "password"]), login);

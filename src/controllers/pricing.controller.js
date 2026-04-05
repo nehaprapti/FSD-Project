@@ -4,6 +4,7 @@ import {
   setAreaSurgeMultiplier,
   getAreaSurgeMultiplier
 } from "../services/pricing.service.js";
+import { getSurgeForLocation } from "../services/analytics.service.js";
 
 export const estimateFare = async (req, res, next) => {
   try {
@@ -36,6 +37,22 @@ export const setSurge = async (req, res, next) => {
 export const getSurge = async (req, res, next) => {
   try {
     const data = await getAreaSurgeMultiplier(req.params.areaCode);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getSurgeByCoords = async (req, res, next) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      const err = new Error("lat and lng are required");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const data = await getSurgeForLocation(lat, lng);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return next(error);

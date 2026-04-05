@@ -1,6 +1,7 @@
 import {
   estimateRideBookingFare,
   bookRide,
+  getSharedRideGroup,
   getRideById,
   updateRideStatusByDriver,
   cancelRideByActor
@@ -58,6 +59,15 @@ export const cancelRideById = async (req, res, next) => {
       actorRole: req.user.role,
       actorUserId: req.user.userId
     });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getSharedGroup = async (req, res, next) => {
+  try {
+    const data = await getSharedRideGroup(req.params.groupId);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return next(error);

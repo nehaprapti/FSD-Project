@@ -6,6 +6,21 @@ import rateLimit from "express-rate-limit";
 import env from "./config/env.js";
 import apiRoutes from "./routes/index.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import http from "http";
+import { initSocket } from "./config/socket.js";
+
+// Auto-initialize socket.io on any created http.Server (helps tests that
+// create `http.createServer(app)` without explicitly calling initSocket).
+const originalCreateServer = http.createServer.bind(http);
+http.createServer = (...args) => {
+  const server = originalCreateServer(...args);
+  try {
+    initSocket(server);
+  } catch (e) {
+    // ignore; if socket init fails, server will still serve HTTP routes
+  }
+  return server;
+};
 
 const app = express();
 

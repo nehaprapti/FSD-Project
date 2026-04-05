@@ -16,6 +16,10 @@ export const PRICING_CONFIG = {
   estimateTimeVariancePercent: toNumber(process.env.ESTIMATE_TIME_VARIANCE_PERCENT, 15),
   estimateWaitingMinMin: toNumber(process.env.ESTIMATE_WAITING_MIN_MIN, 0),
   estimateWaitingMinMax: toNumber(process.env.ESTIMATE_WAITING_MIN_MAX, 6)
+  ,
+  commissionRatePercent: toNumber(process.env.COMMISSION_RATE_PERCENT, 20)
+  ,
+  sharedServiceFeePercent: toNumber(process.env.SHARED_SERVICE_FEE_PERCENT, 5)
 };
 
 export default PRICING_CONFIG;

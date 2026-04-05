@@ -130,6 +130,24 @@ const rideSchema = new mongoose.Schema(
       default: 1,
       min: 1
     },
+    passengers: {
+      type: [
+        {
+          passengerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+          pickupCoords: {
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true }
+          },
+          dropCoords: {
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true }
+          },
+          fareShare: { type: Number, required: true, min: 0 },
+          status: { type: String, enum: ["booked", "picked_up", "dropped_off"], default: "booked" }
+        }
+      ],
+      default: []
+    },
     cancelledBy: {
       type: String,
       enum: ["passenger", "driver", null],

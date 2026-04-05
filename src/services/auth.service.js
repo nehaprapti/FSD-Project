@@ -28,6 +28,10 @@ const createToken = ({ user, extraClaims = {} }) => {
 };
 
 const assertUniqueEmail = async (email) => {
+  if (typeof email !== "string") {
+    throw makeError("Invalid email", 400);
+  }
+
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) {
     throw makeError("Email already registered", 409);
@@ -36,6 +40,10 @@ const assertUniqueEmail = async (email) => {
 
 export const signupPassenger = async (payload) => {
   const { name, email, password, phone, savedLocations = [], preferences = {} } = payload;
+
+  if (typeof password !== "string") {
+    throw makeError("Invalid password", 400);
+  }
 
   await assertUniqueEmail(email);
 
@@ -70,11 +78,17 @@ export const signupPassenger = async (payload) => {
 };
 
 export const signupDriver = async (payload) => {
-  const { name, email, password, phone, vehicleInfo, licenseInfo, currentLocation } = payload;
+  const { name, email, password, phone, vehicleInfo: _vehicleInfo, licenseInfo, currentLocation, vehicle } = payload;
+
+  if (typeof password !== "string") {
+    throw makeError("Invalid password", 400);
+  }
 
   await assertUniqueEmail(email);
 
   const passwordHash = await bcrypt.hash(password, 10);
+
+  const vehicleInfo = _vehicleInfo ?? vehicle ?? {};
 
   const user = await User.create({
     name,
@@ -86,10 +100,21 @@ export const signupDriver = async (payload) => {
   });
 
   try {
+    const filledVehicleInfo = {
+      make: vehicleInfo.make ?? "Unknown",
+      model: vehicleInfo.model ?? "Unknown",
+      plate: vehicleInfo.plate ?? "UNKNOWN",
+      color: vehicleInfo.color ?? "Unknown",
+      seats: vehicleInfo.seats ?? 4
+    };
+
+    const filledLicenseInfo = licenseInfo ?? { number: "UNKNOWN", expiry: new Date("2100-01-01") };
+
     const driver = await Driver.create({
+      _id: user._id,
       userId: user._id,
-      vehicleInfo,
-      licenseInfo,
+      vehicleInfo: filledVehicleInfo,
+      licenseInfo: filledLicenseInfo,
       verificationStatus: "pending",
       availabilityStatus: false,
       currentLocation,
@@ -98,7 +123,7 @@ export const signupDriver = async (payload) => {
     });
 
     return {
-      user: sanitizeUser(user),
+      user: { ...sanitizeUser(user), verificationStatus: driver.verificationStatus },
       driver,
       token: createToken({ user, extraClaims: { isVerifiedDriver: false } })
     };
@@ -110,6 +135,9 @@ export const signupDriver = async (payload) => {
 
 export const loginUser = async (payload) => {
   const { email, password } = payload;
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw makeError("Invalid credentials", 400);
+  }
 
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
@@ -149,6 +177,9 @@ export const loginUser = async (payload) => {
 
 export const loginAdmin = async (payload) => {
   const { email, password } = payload;
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw makeError("Invalid credentials", 400);
+  }
 
   const user = await User.findOne({ email: email.toLowerCase(), role: "admin" });
   if (!user) {

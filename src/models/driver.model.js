@@ -45,6 +45,9 @@ const driverSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    verificationReason: {
+      type: String
+    },
     currentLocation: {
       type: {
         type: String,

@@ -9,7 +9,7 @@ import { validateRequired } from "../middlewares/validateRequest.js";
 
 const router = Router();
 
-router.post("/upload", authCheck, roleGuard("driver"), validateRequired(["documentType", "fileRef"]), uploadVerification);
+router.post("/upload", authCheck, roleGuard("driver"), validateRequired(["type", "fileMeta"]), uploadVerification);
 router.get("/status", authCheck, roleGuard("driver"), getVerificationStatus);
 
 export default router;

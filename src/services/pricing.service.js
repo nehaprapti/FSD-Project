@@ -30,20 +30,12 @@ const toLatLngFromGeoPoint = (geoPoint) => ({
 });
 
 const getCurrentSurgeMultiplier = async (areaCode, atTime = new Date()) => {
-  const demandZone = await DemandZone.findOne({
-    areaCode,
-    isActive: true,
-    $and: [
-      {
-        $or: [{ startsAt: null }, { startsAt: { $lte: atTime } }]
-      },
-      {
-        $or: [{ endsAt: null }, { endsAt: { $gte: atTime } }]
-      }
-    ]
-  }).sort({ updatedAt: -1 });
+  // areaCode here is a geohash (precision 6). Demand zones are stored per time slot and day.
+  const hour = atTime.getHours();
+  const day = atTime.getDay();
 
-  return round2(Number(demandZone?.multiplier || 1));
+  const dz = await DemandZone.findOne({ zoneId: areaCode, timeSlot: hour, dayOfWeek: day }).sort({ updatedAt: -1 });
+  return round2(Number(dz?.surgeMultiplier || dz?.multiplier || 1));
 };
 
 const buildFareBreakdown = ({
@@ -224,7 +216,7 @@ export const estimateRideFare = async ({ pickup, drop, dropoff, rideType = "solo
   return estimateFare(pickup, targetDrop, rideType);
 };
 
-export const setAreaSurgeMultiplier = async ({ areaCode, multiplier, startsAt = null, endsAt = null }) => {
+export const setAreaSurgeMultiplier = async ({ areaCode, multiplier, timeSlot = null, dayOfWeek = null }) => {
   if (!areaCode) {
     throw makeError("areaCode is required", 400);
   }
@@ -233,23 +225,32 @@ export const setAreaSurgeMultiplier = async ({ areaCode, multiplier, startsAt = 
     throw makeError("multiplier must be a number greater than or equal to 1", 400);
   }
 
-  const zone = await DemandZone.findOneAndUpdate(
-    { areaCode, startsAt, endsAt, isActive: true },
-    {
-      $set: {
-        areaCode,
-        multiplier: Number(multiplier),
-        startsAt,
-        endsAt,
-        isActive: true
-      }
-    },
-    { new: true, upsert: true }
-  );
+  const updates = [];
+  const tsList = timeSlot === null ? Array.from({ length: 24 }, (_, i) => i) : [Number(timeSlot)];
+  const dwList = dayOfWeek === null ? Array.from({ length: 7 }, (_, i) => i) : [Number(dayOfWeek)];
 
-  return {
-    zone
-  };
+  for (const ts of tsList) {
+    for (const dw of dwList) {
+      const zone = await DemandZone.findOneAndUpdate(
+        { zoneId: areaCode, timeSlot: ts, dayOfWeek: dw },
+        {
+          $set: {
+            zoneId: areaCode,
+            areaCode: areaCode,
+            geohash: areaCode,
+            timeSlot: ts,
+            dayOfWeek: dw,
+            surgeMultiplier: Number(multiplier),
+            multiplier: Number(multiplier)
+          }
+        },
+        { new: true, upsert: true }
+      );
+      updates.push(zone);
+    }
+  }
+
+  return { updated: updates.length };
 };
 
 export const getAreaSurgeMultiplier = async (areaCode) => {

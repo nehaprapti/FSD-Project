@@ -1,4 +1,5 @@
 import Ride, { RIDE_STATUSES } from "../models/ride.model.js";
+import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import Driver from "../models/driver.model.js";
 import Earning from "../models/earning.model.js";
@@ -6,6 +7,8 @@ import LocationLog from "../models/locationLog.model.js";
 import { calculateDistanceKm } from "../utils/distance.js";
 import { estimateFare, calculateFinalFare } from "./pricing.service.js";
 import MATCHING_CONFIG from "../config/matching.js";
+import PRICING_CONFIG from "../config/pricing.js";
+import { incrementRequestAtLocation, recomputeActiveDriversAtLocation } from "./analytics.service.js";
 import { emitToUser, emitToRole } from "../sockets/socketRegistry.js";
 
 const activeMatchingTimeoutByRideId = new Map();
@@ -148,21 +151,29 @@ const createRideEarningIfMissing = async (ride) => {
     return;
   }
 
-  const existingEarning = await Earning.findOne({ ride: ride._id });
+  const existingEarning = await Earning.findOne({ rideId: ride._id });
   if (existingEarning) {
     return;
   }
 
-  const grossFare = Number(ride.finalFare || ride.estimatedFare || 0);
-  const platformFee = Number((grossFare * 0.2).toFixed(2));
-  const driverPayout = Number((grossFare - platformFee).toFixed(2));
+  const grossAmount = Number(ride.finalFare || ride.estimatedFare || 0);
+  const commissionRate = Number(PRICING_CONFIG.commissionRatePercent || 20);
+  const commissionAmount = Number(((grossAmount * commissionRate) / 100).toFixed(2));
+  const netAmount = Number((grossAmount - commissionAmount).toFixed(2));
 
   await Earning.create({
-    driver: ride.driverId,
-    ride: ride._id,
-    grossFare,
-    platformFee,
-    driverPayout
+    driverId: ride.driverId,
+    rideId: ride._id,
+    grossAmount,
+    commissionRate,
+    commissionAmount,
+    netAmount,
+    payoutStatus: "pending",
+    legacy: {
+      grossFare: grossAmount,
+      platformFee: commissionAmount,
+      driverPayout: netAmount
+    }
   });
 };
 
@@ -357,6 +368,103 @@ export const bookRide = async (payload) => {
       ? Number(estimatedDurationMin)
       : Number(((pricingEstimate.durationMin.min + pricingEstimate.durationMin.max) / 2).toFixed(2));
 
+  // Shared ride flow: attempt to join an existing compatible shared ride
+  if (rideType === "shared") {
+    // find candidate shared rides that haven't started and have seats
+    const candidates = await Ride.find({
+      rideType: "shared",
+      status: { $in: ["requested", "searching_driver", "driver_assigned"] },
+      // ensure group has room
+      seatsBooked: { $lt: MATCHING_CONFIG.maxSharedGroupSeats }
+    }).sort({ createdAt: -1 });
+
+    for (const candidate of candidates) {
+      try {
+        const pickupDistance = calculateDistanceKm(stopToLatLng(normalizedPickup), stopToLatLng(candidate.pickup));
+        const dropDistance = calculateDistanceKm(stopToLatLng(normalizedDrop), stopToLatLng(candidate.drop));
+
+        if (
+          pickupDistance <= MATCHING_CONFIG.sharedPickupMaxKm &&
+          dropDistance <= MATCHING_CONFIG.sharedDropMaxKm &&
+          candidate.seatsBooked < MATCHING_CONFIG.maxSharedGroupSeats
+        ) {
+          // join this candidate
+          const existingPassengers = Array.isArray(candidate.passengers) ? candidate.passengers : [];
+          const newTotal = existingPassengers.length + 1;
+
+          // compute new per-passenger share and service fee
+          const perPassenger = Number((midpointEstimatedFare / newTotal).toFixed(2));
+          const serviceFee = Number(((PRICING_CONFIG.sharedServiceFeePercent || 5) / 100 * perPassenger).toFixed(2));
+          const newFareShare = Number((perPassenger + serviceFee).toFixed(2));
+
+          // add new passenger
+          existingPassengers.push({
+            passengerId,
+            pickupCoords: { lat: stopToLatLng(normalizedPickup).lat, lng: stopToLatLng(normalizedPickup).lng },
+            dropCoords: { lat: stopToLatLng(normalizedDrop).lat, lng: stopToLatLng(normalizedDrop).lng },
+            fareShare: newFareShare,
+            status: "booked"
+          });
+
+          // recompute fareShare for all passengers evenly
+          const recomputedPerPassenger = Number((midpointEstimatedFare / newTotal).toFixed(2));
+          const recomputedServiceFee = Number(((PRICING_CONFIG.sharedServiceFeePercent || 5) / 100 * recomputedPerPassenger).toFixed(2));
+          for (let i = 0; i < existingPassengers.length; i++) {
+            existingPassengers[i].fareShare = Number((recomputedPerPassenger + recomputedServiceFee).toFixed(2));
+          }
+
+          candidate.passengers = existingPassengers;
+          candidate.seatsBooked = (candidate.seatsBooked || 0) + 1;
+          candidate.estimatedFare = midpointEstimatedFare; // total fare for trip
+          await candidate.save();
+
+          emitRideFeed("shared_ride_joined", { rideId: String(candidate._id), passengerId: String(passengerId) });
+
+          return Ride.findById(candidate._id).populate("driverId", "name email phone");
+        }
+      } catch (e) {
+        // ignore candidate errors and continue
+        console.error("shared-ride candidate check failed:", e.message);
+        continue;
+      }
+    }
+
+    // no compatible ride found — create new shared ride group
+    const sharedGroupId = String(mongoose.Types.ObjectId());
+    const serviceFeeInit = Number(((PRICING_CONFIG.sharedServiceFeePercent || 5) / 100 * midpointEstimatedFare).toFixed(2));
+    const fareShareInit = Number((midpointEstimatedFare + serviceFeeInit).toFixed(2));
+
+    const newRide = await Ride.create({
+      passengerId,
+      rideType,
+      pickup: normalizedPickup,
+      drop: normalizedDrop,
+      sharedRideGroupId: sharedGroupId,
+      seatsBooked: 1,
+      passengers: [
+        {
+          passengerId,
+          pickupCoords: { lat: stopToLatLng(normalizedPickup).lat, lng: stopToLatLng(normalizedPickup).lng },
+          dropCoords: { lat: stopToLatLng(normalizedDrop).lat, lng: stopToLatLng(normalizedDrop).lng },
+          fareShare: fareShareInit,
+          status: "booked"
+        }
+      ],
+      distanceKm,
+      estimatedDurationMin: estimatedDuration,
+      estimatedFare: midpointEstimatedFare,
+      finalFare: null,
+      surgeMultiplier: pricingEstimate.surgeMultiplier,
+      status: "requested",
+      statusHistory: [{ status: "requested", timestamp: new Date() }]
+    });
+
+    emitRideFeed("shared_ride_booked", { rideId: String(newRide._id), passengerId: String(passengerId) });
+    await triggerDriverSearch(newRide._id);
+    return Ride.findById(newRide._id).populate("driverId", "name email phone");
+  }
+
+  // Solo/default flow
   const ride = await Ride.create({
     passengerId,
     rideType,
@@ -380,6 +488,31 @@ export const bookRide = async (payload) => {
 
   await triggerDriverSearch(ride._id);
   return Ride.findById(ride._id).populate("driverId", "name email phone");
+};
+
+export const getSharedRideGroup = async (groupId) => {
+  if (!groupId) {
+    const err = new Error("groupId is required");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const ride = await Ride.findOne({ sharedRideGroupId: groupId }).populate("passengers.passengerId", "name email phone").lean();
+  if (!ride) {
+    const err = new Error("Shared ride group not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return {
+    groupId,
+    rideId: ride._id,
+    seatsBooked: ride.seatsBooked,
+    passengers: ride.passengers,
+    pickup: ride.pickup,
+    drop: ride.drop,
+    status: ride.status
+  };
 };
 
 export const respondToRideRequestByDriver = async ({ rideId, driverUserId, response }) => {
@@ -496,6 +629,17 @@ export const updateRideStatusByDriver = async ({ rideId, driverUserId, status, l
     await Driver.findOneAndUpdate({ userId: driverUserId }, { $set: { availabilityStatus: true } });
   }
 
+  if (normalizedStatus === "trip_completed" || normalizedStatus === "driver_assigned" || normalizedStatus === "searching_driver") {
+    // update demand metrics for pickup location on booking/completion
+    try {
+      const coords = ride.pickup.location.coordinates;
+      await incrementRequestAtLocation(coords[1], coords[0], new Date());
+    } catch (e) {
+      // don't fail ride flow on analytics errors
+      console.error("analytics.incrementRequestAtLocation failed", e.message);
+    }
+  }
+
   emitToUser(String(ride.passengerId), "passenger:ride_status", {
     rideId: String(ride._id),
     status: normalizedStatus
@@ -598,6 +742,13 @@ export const handleDriverLocationUpdate = async ({ driverUserId, rideId, latitud
     rideId: String(ride._id),
     driverUserId: String(driverUserId)
   });
+
+  // recompute activeDrivers for the driver's current zone
+  try {
+    await recomputeActiveDriversAtLocation(Number(latitude), Number(longitude));
+  } catch (e) {
+    console.error("analytics.recomputeActiveDriversAtLocation failed", e.message);
+  }
 
   return log;
 };
