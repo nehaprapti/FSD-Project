@@ -43,7 +43,9 @@ app.get("/health", (req, res) => {
   res.status(200).json({ success: true, message: "Ride-hailing backend is healthy" });
 });
 
-app.use("/api", limiter);
+if (process.env.NODE_ENV !== "test") {
+  app.use("/api", limiter);
+}
 app.use("/api", apiRoutes);
 
 app.use((req, res) => {

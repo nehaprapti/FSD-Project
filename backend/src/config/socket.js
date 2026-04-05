@@ -55,5 +55,6 @@ export const initSocket = (httpServer) => {
 
   setSocketServer(io);
   registerSocketHandlers(io);
+  registerSocketHandlers(io.of("/api"));
   return io;
 };

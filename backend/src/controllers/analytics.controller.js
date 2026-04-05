@@ -12,7 +12,7 @@ import {
 export const getRideStats = async (req, res, next) => {
   try {
     const data = await getRideAnalytics(req.query);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -21,7 +21,7 @@ export const getRideStats = async (req, res, next) => {
 export const getRevenueStats = async (req, res, next) => {
   try {
     const data = await getRevenueAnalytics(req.query);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -30,7 +30,7 @@ export const getRevenueStats = async (req, res, next) => {
 export const aggregateZones = async (req, res, next) => {
   try {
     const data = await aggregateDemandZones(req.query);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -39,7 +39,7 @@ export const aggregateZones = async (req, res, next) => {
 export const getHeatmap = async (req, res, next) => {
   try {
     const data = await getHeatmapForCurrentHour();
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -54,7 +54,7 @@ export const getHistory = async (req, res, next) => {
       throw err;
     }
     const data = await getZoneHistory(zone, from, to);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -63,7 +63,7 @@ export const getHistory = async (req, res, next) => {
 export const exportAnalytics = async (req, res, next) => {
   try {
     const data = await exportDataset(req.query);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }

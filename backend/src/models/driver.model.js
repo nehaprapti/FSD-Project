@@ -45,6 +45,10 @@ const driverSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    onTrip: {
+      type: Boolean,
+      default: false
+    },
     verificationReason: {
       type: String
     },

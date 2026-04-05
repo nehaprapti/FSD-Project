@@ -19,7 +19,7 @@ export const getDriverEarningsSummary = async (driverId, period = "month") => {
   }
 
   const match = {
-    driverId: mongoose.Types.ObjectId(String(driverId)),
+    driverId: new mongoose.Types.ObjectId(String(driverId)),
     createdAt: { $gte: start, $lte: now }
   };
 
@@ -46,7 +46,7 @@ export const getDriverEarningsSummary = async (driverId, period = "month") => {
 
   // pending payout (across matched period)
   const pendingAgg = await Earning.aggregate([
-    { $match: { driverId: mongoose.Types.ObjectId(String(driverId)), payoutStatus: "pending", createdAt: { $gte: start, $lte: now } } },
+    { $match: { driverId: new mongoose.Types.ObjectId(String(driverId)), payoutStatus: "pending", createdAt: { $gte: start, $lte: now } } },
     { $group: { _id: "$driverId", pendingPayout: { $sum: "$netAmount" } } }
   ]);
 
@@ -59,7 +59,7 @@ export const getDriverTrips = async (driverId, { page = 1, limit = 20 } = {}) =>
   const p = Math.max(1, Number(page));
   const l = Math.max(1, Math.min(200, Number(limit)));
 
-  const query = { driverId: mongoose.Types.ObjectId(String(driverId)) };
+  const query = { driverId: new mongoose.Types.ObjectId(String(driverId)) };
 
   const [items, total] = await Promise.all([
     Earning.find(query)

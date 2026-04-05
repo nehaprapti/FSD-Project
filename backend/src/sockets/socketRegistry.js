@@ -10,12 +10,12 @@ export const setSocketServer = (io) => {
   ioServer = io;
 };
 
-export const registerSocketConnection = ({ socketId, role, userId }) => {
+export const registerSocketConnection = ({ socketId, role, userId, namespace = "/" }) => {
   if (!socketId || !role || !userId) {
     return;
   }
 
-  socketById.set(socketId, { role, userId });
+  socketById.set(socketId, { role, userId, namespace });
 
   if (!socketIdsByUserId.has(userId)) {
     socketIdsByUserId.set(userId, new Set());
@@ -82,7 +82,12 @@ export const emitToUser = (userId, eventName, payload) => {
   }
 
   for (const socketId of socketSet) {
-    ioServer.to(socketId).emit(eventName, payload);
+    const meta = socketById.get(socketId);
+    if (meta && meta.namespace) {
+      ioServer.of(meta.namespace).to(socketId).emit(eventName, payload);
+    } else {
+      ioServer.to(socketId).emit(eventName, payload);
+    }
   }
 
   return true;
@@ -99,7 +104,12 @@ export const emitToRole = (role, eventName, payload) => {
   }
 
   for (const socketId of socketSet) {
-    ioServer.to(socketId).emit(eventName, payload);
+    const meta = socketById.get(socketId);
+    if (meta && meta.namespace) {
+      ioServer.of(meta.namespace).to(socketId).emit(eventName, payload);
+    } else {
+      ioServer.to(socketId).emit(eventName, payload);
+    }
   }
 
   return true;
@@ -117,7 +127,12 @@ export const emitToRoleUser = (role, userId, eventName, payload) => {
   }
 
   for (const socketId of socketSet) {
-    ioServer.to(socketId).emit(eventName, payload);
+    const meta = socketById.get(socketId);
+    if (meta && meta.namespace) {
+      ioServer.of(meta.namespace).to(socketId).emit(eventName, payload);
+    } else {
+      ioServer.to(socketId).emit(eventName, payload);
+    }
   }
 
   return true;

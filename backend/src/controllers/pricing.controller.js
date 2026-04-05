@@ -10,7 +10,7 @@ export const estimateFare = async (req, res, next) => {
   try {
     const { pickup, pickupCoords, drop, dropoff, dropCoords, rideType = "solo" } = req.body;
     const data = await estimateFareService(pickupCoords || pickup, dropCoords || drop || dropoff, rideType);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -19,7 +19,7 @@ export const estimateFare = async (req, res, next) => {
 export const finalizeFare = async (req, res, next) => {
   try {
     const data = await calculateFinalFare(req.params.rideId);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -28,7 +28,7 @@ export const finalizeFare = async (req, res, next) => {
 export const setSurge = async (req, res, next) => {
   try {
     const data = await setAreaSurgeMultiplier(req.body);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -37,7 +37,7 @@ export const setSurge = async (req, res, next) => {
 export const getSurge = async (req, res, next) => {
   try {
     const data = await getAreaSurgeMultiplier(req.params.areaCode);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }
@@ -53,7 +53,7 @@ export const getSurgeByCoords = async (req, res, next) => {
     }
 
     const data = await getSurgeForLocation(lat, lng);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json(data);
   } catch (error) {
     return next(error);
   }

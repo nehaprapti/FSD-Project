@@ -67,12 +67,17 @@ export const registerDriverSocketHandlers = (io, socket) => {
       socket,
       eventName: "driver:ride_response",
       callback,
-      action: () =>
-        respondToRideRequestByDriver({
+      action: () => {
+        let response = payload.response;
+        if (payload.accept === true) response = "accepted";
+        if (payload.accept === false) response = "rejected";
+
+        return respondToRideRequestByDriver({
           rideId: payload.rideId,
           driverUserId: socket.userId,
-          response: payload.response
-        })
+          response
+        });
+      }
     });
   });
 
