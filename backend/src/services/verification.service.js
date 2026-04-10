@@ -2,6 +2,7 @@ import Verification from "../models/verification.model.js";
 import Driver from "../models/driver.model.js";
 import User from "../models/user.model.js";
 import { emitToUser, emitToRole } from "../sockets/socketRegistry.js";
+import { sendEmail } from "./mail.service.js";
 
 const REQUIRED_DOCUMENT_TYPES = ["license", "id_proof", "vehicle_registration", "insurance"];
 
@@ -177,6 +178,14 @@ export const approveDriverVerification = async ({ driverUserId, adminUserId }) =
     timestamp: new Date().toISOString()
   });
 
+  const { user } = await ensureDriverExists(driverUserId);
+  await sendEmail({
+    to: user.email,
+    subject: "Driver Account Approved! - HOLOID",
+    text: `Congratulations ${user.name}! Your HOLOID driver account has been approved. You can now start accepting rides.`,
+    html: `<h1>Account Approved!</h1><p>Congratulations <strong>${user.name}</strong>!</p><p>Your HOLOID driver account has been approved. You can now go online and start accepting rides.</p>`
+  });
+
   return {
     driverId: String(driverUserId),
     verificationStatus: driver.verificationStatus
@@ -204,6 +213,14 @@ export const rejectDriverVerification = async ({ driverUserId, adminUserId, docu
       reason,
       reviewedBy: String(adminUserId),
       timestamp: new Date().toISOString()
+    });
+
+    const { user } = await ensureDriverExists(driverUserId);
+    await sendEmail({
+      to: user.email,
+      subject: "Driver Account Verification Update - HOLOID",
+      text: `Hello ${user.name}, your driver application was unfortunately rejected. Reason: ${reason}`,
+      html: `<h1>Application Update</h1><p>Hello ${user.name},</p><p>Your driver application was unfortunately rejected for the following reason:</p><blockquote>${reason}</blockquote><p>Please update your documents and try again.</p>`
     });
 
     return {

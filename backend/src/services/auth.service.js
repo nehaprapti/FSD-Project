@@ -4,6 +4,7 @@ import Passenger from "../models/passenger.model.js";
 import Driver from "../models/driver.model.js";
 import { generateAccessToken } from "../utils/token.js";
 import env from "../config/env.js";
+import { sendEmail } from "./mail.service.js";
 
 const makeError = (message, statusCode) => {
   const error = new Error(message);
@@ -50,13 +51,18 @@ export const signupPassenger = async (payload) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
   const user = await User.create({
     name,
     email: email.toLowerCase(),
     phone,
     passwordHash,
     role: "passenger",
-    status: "active"
+    status: "pending",
+    otp,
+    otpExpires
   });
 
   try {
@@ -67,10 +73,17 @@ export const signupPassenger = async (payload) => {
       tripHistory: []
     });
 
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your HOLOID Account",
+      text: `Your OTP for HOLOID registration is: ${otp}. It will expire in 10 minutes.`,
+      html: `<h1>Welcome to HOLOID!</h1><p>Thank you for signing up. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`
+    });
+
     return {
-      user: sanitizeUser(user),
-      passenger,
-      token: createToken({ user })
+      message: "OTP sent to your email",
+      userId: user._id,
+      email: user.email
     };
   } catch (error) {
     await User.findByIdAndDelete(user._id);
@@ -91,13 +104,18 @@ export const signupDriver = async (payload) => {
 
   const vehicleInfo = _vehicleInfo ?? vehicle ?? {};
 
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
   const user = await User.create({
     name,
     email: email.toLowerCase(),
     phone,
     passwordHash,
     role: "driver",
-    status: "active"
+    status: "pending",
+    otp,
+    otpExpires
   });
 
   try {
@@ -123,10 +141,17 @@ export const signupDriver = async (payload) => {
       totalTrips: 0
     });
 
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your HOLOID Driver Account",
+      text: `Your OTP for HOLOID driver registration is: ${otp}. It will expire in 10 minutes.`,
+      html: `<h1>Welcome to HOLOID!</h1><p>Thank you for applying as a driver. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`
+    });
+
     return {
-      user: { ...sanitizeUser(user), verificationStatus: driver.verificationStatus },
-      driver,
-      token: createToken({ user, extraClaims: { isVerifiedDriver: false } })
+      message: "OTP sent to your email",
+      userId: user._id,
+      email: user.email
     };
   } catch (error) {
     await User.findByIdAndDelete(user._id);
@@ -226,6 +251,27 @@ export const loginAdmin = async (payload) => {
   if (user.status === "blocked") {
     throw makeError("Admin account is blocked", 403);
   }
+
+  return {
+    user: sanitizeUser(user),
+    token: createToken({ user })
+  };
+};
+
+export const verifyOtpEmail = async ({ userId, otp }) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw makeError("User not found", 404);
+  }
+
+  if (user.otp !== otp || (user.otpExpires && user.otpExpires < new Date())) {
+    throw makeError("Invalid or expired OTP", 400);
+  }
+
+  user.status = "active";
+  user.otp = null;
+  user.otpExpires = null;
+  await user.save();
 
   return {
     user: sanitizeUser(user),

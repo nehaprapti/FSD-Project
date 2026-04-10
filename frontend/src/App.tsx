@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthModule } from './components/Auth';
 import { PassengerModule } from './components/Passenger';
 import { DriverModule } from './components/Driver';
 import { AdminModule } from './components/Admin';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 
 export type Role = 'auth' | 'passenger' | 'driver' | 'admin';
 
 export default function App() {
   const [role, setRole] = useState<Role>('auth');
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const savedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     if (savedUser && token) {
@@ -21,16 +23,49 @@ export default function App() {
         localStorage.clear();
       }
     }
+    setIsInitialized(true);
   }, []);
 
+  if (!isInitialized) return null;
+
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white relative flex flex-col font-sans">
-      <AnimatePresence mode="wait">
-        {role === 'auth' && <AuthModule key="auth" setRole={setRole} />}
-        {role === 'passenger' && <PassengerModule key="passenger" />}
-        {role === 'driver' && <DriverModule key="driver" />}
-        {role === 'admin' && <AdminModule key="admin" />}
-      </AnimatePresence>
-    </div>
+    <BrowserRouter>
+      <div className="min-h-screen bg-dark text-white relative flex flex-col font-sans">
+        <Routes>
+          <Route 
+            path="/login" 
+            element={
+              role === 'auth' ? (
+                <AuthModule setRole={setRole} />
+              ) : (
+                <Navigate to={`/${role}`} replace />
+              )
+            } 
+          />
+          <Route 
+            path="/passenger" 
+            element={
+              role === 'passenger' ? <PassengerModule /> : <Navigate to="/login" replace />
+            } 
+          />
+          <Route 
+            path="/driver" 
+            element={
+              role === 'driver' ? <DriverModule /> : <Navigate to="/login" replace />
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              role === 'admin' ? <AdminModule /> : <Navigate to="/login" replace />
+            } 
+          />
+          <Route 
+            path="/" 
+            element={<Navigate to={role === 'auth' ? "/login" : `/${role}`} replace />} 
+          />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }

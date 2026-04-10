@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   AlertCircle,
 } from "lucide-react";
-import { login, signupPassenger, signupDriver } from "../api/auth";
+import { login, signupPassenger, signupDriver, verifyOtp } from "../api/auth";
 
 export const AuthModule = ({
   setRole,
@@ -17,12 +17,12 @@ export const AuthModule = ({
   setRole: (role: any) => void;
   key?: string;
 }) => {
-  const [screen, setScreen] = useState<"login" | "signup" | "otp">(
-    "login",
-  );
+  const [screen, setScreen] = useState<"login" | "signup" | "otp">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(59);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [otpValue, setOtpValue] = useState(["", "", "", "", "", ""]);
 
   // Login state
   const [email, setEmail] = useState("");
@@ -78,14 +78,14 @@ export const AuthModule = ({
         name: `${formData.firstName} ${formData.lastName}`.trim(),
       };
 
-      const data =
+      const response =
         signupRole === "passenger"
           ? await signupPassenger(payload)
           : await signupDriver(payload);
 
+      setPendingUserId(response.userId);
       setScreen("otp");
-      // In a real app, we'd wait for OTP. For now, we'll store the data for verification
-      localStorage.setItem("pendingUser", JSON.stringify(data));
+      setTimeLeft(59);
     } catch (err: any) {
       setError(
         err.response?.data?.message || "Signup failed. Please try again.",
@@ -95,19 +95,32 @@ export const AuthModule = ({
     }
   };
 
-  const handleVerify = () => {
-    const pendingData = JSON.parse(localStorage.getItem("pendingUser") || "{}");
-    if (pendingData.token) {
-      localStorage.setItem("token", pendingData.token);
-      localStorage.setItem("user", JSON.stringify(pendingData.user));
-      setRole(pendingData.user.role);
-      localStorage.removeItem("pendingUser");
+  const handleVerify = async () => {
+    if (!pendingUserId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const otp = otpValue.join("");
+      if (otp.length !== 6) throw new Error("Please enter all 6 digits.");
+
+      const data = await verifyOtp({ userId: pendingUserId, otp });
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setRole(data.user.role);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          "Verification failed. Please check the OTP.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden min-h-screen">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#FFD600]/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="w-full max-w-[420px] z-10">
@@ -121,11 +134,13 @@ export const AuthModule = ({
         {screen === "login" && (
           <ScreenTransition keyId="login">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-[#FFD600] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(255,214,0,0.3)]">
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(255,214,0,0.3)]">
                 <ArrowRight size={32} className="text-black" />
               </div>
               <h1 className="text-3xl font-bold">Welcome Back</h1>
-              <p className="text-white/50 mt-2">Sign in to continue your journey</p>
+              <p className="text-white/50 mt-2">
+                Sign in to continue your journey
+              </p>
             </div>
             <GlassCard>
               <form onSubmit={handleLogin}>
@@ -150,7 +165,7 @@ export const AuthModule = ({
                 <div className="flex justify-end mb-6">
                   <button
                     type="button"
-                    className="text-sm text-[#FFD600] hover:underline"
+                    className="text-sm text-primary hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -175,7 +190,7 @@ export const AuthModule = ({
                 Don't have an account?{" "}
                 <button
                   onClick={() => setScreen("signup")}
-                  className="text-[#FFD600] hover:underline"
+                  className="text-primary hover:underline"
                 >
                   Sign up
                 </button>
@@ -196,13 +211,13 @@ export const AuthModule = ({
               <div className="flex bg-black/40 p-1 rounded-xl mb-6">
                 <button
                   onClick={() => setSignupRole("passenger")}
-                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${signupRole === "passenger" ? "bg-[#FFD600] text-black shadow-sm" : "text-white/70 hover:text-white"}`}
+                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${signupRole === "passenger" ? "bg-primary text-black shadow-sm" : "text-white/70 hover:text-white"}`}
                 >
                   Passenger
                 </button>
                 <button
                   onClick={() => setSignupRole("driver")}
-                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${signupRole === "driver" ? "bg-[#FFD600] text-black shadow-sm" : "text-white/70 hover:text-white"}`}
+                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${signupRole === "driver" ? "bg-primary text-black shadow-sm" : "text-white/70 hover:text-white"}`}
                 >
                   Driver
                 </button>
@@ -264,8 +279,8 @@ export const AuthModule = ({
                 />
                 <label className="flex items-center gap-3 mb-6 cursor-pointer group">
                   <input type="checkbox" className="hidden" required />
-                  <div className="w-5 h-5 rounded border border-white/20 bg-black/20 flex items-center justify-center group-hover:border-[#FFD600] transition-colors">
-                    <div className="w-3 h-3 bg-[#FFD600] rounded-sm transition-opacity" />
+                  <div className="w-5 h-5 rounded border border-white/20 bg-black/20 flex items-center justify-center group-hover:border-primary transition-colors">
+                    <div className="w-3 h-3 bg-primary rounded-sm transition-opacity" />
                   </div>
                   <span className="text-sm text-white/70">
                     I agree to the Terms & Conditions
@@ -283,7 +298,7 @@ export const AuthModule = ({
                 Already have an account?{" "}
                 <button
                   onClick={() => setScreen("login")}
-                  className="text-[#FFD600] hover:underline"
+                  className="text-primary hover:underline"
                 >
                   Login
                 </button>
@@ -295,8 +310,8 @@ export const AuthModule = ({
         {screen === "otp" && (
           <ScreenTransition keyId="otp">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-[#FFD600]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldCheck size={32} className="text-[#FFD600]" />
+              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck size={32} className="text-primary" />
               </div>
               <h1 className="text-3xl font-bold">Verify Phone</h1>
               <p className="text-white/50 mt-2">
@@ -310,7 +325,29 @@ export const AuthModule = ({
                     key={i}
                     type="text"
                     maxLength={1}
-                    className="w-12 h-14 text-center text-2xl font-bold bg-black/20 border border-white/10 rounded-xl focus:border-[#FFD600] focus:outline-none transition-colors"
+                    value={otpValue[i]}
+                    onChange={(e) => {
+                      const newOtp = [...otpValue];
+                      newOtp[i] = e.target.value;
+                      setOtpValue(newOtp);
+                      // Auto-focus next input
+                      if (e.target.value && i < 5) {
+                        const nextInput = document.getElementById(
+                          `otp-${i + 1}`,
+                        );
+                        nextInput?.focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Backspace" && !otpValue[i] && i > 0) {
+                        const prevInput = document.getElementById(
+                          `otp-${i - 1}`,
+                        );
+                        prevInput?.focus();
+                      }
+                    }}
+                    id={`otp-${i}`}
+                    className="w-12 h-14 text-center text-2xl font-bold bg-black/20 border border-white/10 rounded-xl focus:border-primary focus:outline-none transition-colors"
                     placeholder="0"
                   />
                 ))}
@@ -321,7 +358,7 @@ export const AuthModule = ({
               <p className="text-center text-sm text-white/50">
                 Didn't receive code?{" "}
                 <button
-                  className={`ml-1 ${timeLeft === 0 ? "text-[#FFD600] hover:underline" : "text-white/30 cursor-not-allowed"}`}
+                  className={`ml-1 ${timeLeft === 0 ? "text-primary hover:underline" : "text-white/30 cursor-not-allowed"}`}
                   disabled={timeLeft > 0}
                 >
                   Resend{" "}

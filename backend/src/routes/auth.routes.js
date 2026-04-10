@@ -3,7 +3,8 @@ import {
 	signupPassengerController,
 	signupDriverController,
 	login,
-	adminLogin
+	adminLogin,
+	verifyOtpController
 } from "../controllers/auth.controller.js";
 import { validateRequired } from "../middlewares/validateRequest.js";
 
@@ -17,5 +18,6 @@ router.post(
 );
 router.post("/login", validateRequired(["email", "password"]), login);
 router.post("/admin/login", validateRequired(["email", "password"]), adminLogin);
+router.post("/verify-otp", validateRequired(["userId", "otp"]), verifyOtpController);
 
 export default router;

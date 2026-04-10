@@ -14,7 +14,14 @@ const env = {
   jwtSecret: process.env.JWT_SECRET ?? "change-this-secret",
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
   adminUser: process.env.ADMIN_USER ?? "admin",
-  adminPass: process.env.ADMIN_PASS ?? "admin"
+  adminPass: process.env.ADMIN_PASS ?? "admin",
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: parseNumber(process.env.SMTP_PORT, 587),
+    user: process.env.SMTP_USERNAME,
+    pass: process.env.SMTP_PASSWORD,
+    from: process.env.EMAIL_FROM
+  }
 };
 
 export default env;

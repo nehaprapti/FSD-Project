@@ -1,4 +1,4 @@
-import { signupPassenger, signupDriver, loginUser, loginAdmin } from "../services/auth.service.js";
+import { signupPassenger, signupDriver, loginUser, loginAdmin, verifyOtpEmail } from "../services/auth.service.js";
 
 export const signupPassengerController = async (req, res, next) => {
   try {
@@ -30,6 +30,15 @@ export const login = async (req, res, next) => {
 export const adminLogin = async (req, res, next) => {
   try {
     const data = await loginAdmin(req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const verifyOtpController = async (req, res, next) => {
+  try {
+    const data = await verifyOtpEmail(req.body);
     return res.status(200).json({ success: true, ...data });
   } catch (error) {
     return next(error);

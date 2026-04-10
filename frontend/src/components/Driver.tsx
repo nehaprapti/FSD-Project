@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScreenTransition, GlassCard, Button, MapBackground } from './UI';
-import { Home, MapPin, DollarSign, User, Navigation, Phone, CheckCircle, Clock, FileText, Star, Menu, AlertCircle } from 'lucide-react';
+import { Home, MapPin, DollarSign, User, Navigation, Phone, CheckCircle, Clock, FileText, Star, Menu, AlertCircle, LogOut } from 'lucide-react';
 
 export const DriverModule = () => {
   const [screen, setScreen] = useState('dashboard');
@@ -28,7 +28,7 @@ export const DriverModule = () => {
     <div className="flex flex-col h-screen relative overflow-hidden">
       <div className="glass-panel px-6 py-4 flex justify-between items-center z-40 absolute top-0 left-0 right-0 rounded-none border-x-0 border-t-0">
         <div className="font-bold text-xl flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#FFD600] rounded-lg flex items-center justify-center text-black">D</div>
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">D</div>
           DriverApp
         </div>
         <div className="flex items-center gap-2">
@@ -37,7 +37,7 @@ export const DriverModule = () => {
             <div className="text-[10px] text-white/50 leading-none mt-1">Driver</div>
           </div>
           <button onClick={handleLogout} className="p-2 bg-white/5 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors">
-            <XCircle size={20} className="text-white/70" />
+            <LogOut size={20} className="text-white/70" />
           </button>
         </div>
       </div>
@@ -55,7 +55,7 @@ export const DriverModule = () => {
           { id: 'verification', icon: FileText, label: 'Docs' },
           { id: 'profile', icon: User, label: 'Profile' }
         ].map(tab => (
-          <button key={tab.id} onClick={() => setScreen(tab.id)} className={`flex flex-col items-center gap-1 p-2 transition-colors ${screen === tab.id || (screen === 'navigation' && tab.id === 'dashboard') || (screen === 'active' && tab.id === 'dashboard') ? 'text-[#FFD600]' : 'text-white/50 hover:text-white'}`}>
+          <button key={tab.id} onClick={() => setScreen(tab.id)} className={`flex flex-col items-center gap-1 p-2 transition-colors ${screen === tab.id || (screen === 'navigation' && tab.id === 'dashboard') || (screen === 'active' && tab.id === 'dashboard') ? 'text-primary' : 'text-white/50 hover:text-white'}`}>
             <tab.icon size={24} />
             <span className="text-[10px] font-medium">{tab.label}</span>
           </button>
@@ -98,7 +98,7 @@ const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
       <div className="grid grid-cols-2 gap-4 mb-8">
         <GlassCard className="p-4">
           <div className="text-white/50 text-sm mb-1">Today's Earnings</div>
-          <div className="text-2xl font-bold text-[#FFD600]">$124.50</div>
+          <div className="text-2xl font-bold text-primary">$124.50</div>
         </GlassCard>
         <GlassCard className="p-4">
           <div className="text-white/50 text-sm mb-1">Rides Completed</div>
@@ -110,7 +110,7 @@ const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
       <GlassCard className="h-48 flex items-end justify-between gap-2 p-6">
         {[40, 70, 45, 90, 60, 110, 85].map((h, i) => (
           <div key={i} className="w-full bg-white/10 rounded-t-sm relative group">
-            <div className="absolute bottom-0 w-full bg-[#FFD600] rounded-t-sm transition-all" style={{ height: `${h}%` }} />
+            <div className="absolute bottom-0 w-full bg-primary rounded-t-sm transition-all" style={{ height: `${h}%` }} />
           </div>
         ))}
       </GlassCard>
@@ -120,9 +120,9 @@ const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
 
 const RideRequestPopup = ({ onAccept, onReject }: any) => (
   <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-    <GlassCard className="w-full max-w-sm animate-in zoom-in-95 duration-200 border-[#FFD600]/50 shadow-[0_0_50px_rgba(255,214,0,0.2)]">
+    <GlassCard className="w-full max-w-sm animate-in zoom-in-95 duration-200 border-primary/50 shadow-[0_0_50px_rgba(255,214,0,0.2)]">
       <div className="text-center mb-6">
-        <div className="w-16 h-16 rounded-full border-4 border-[#FFD600] flex items-center justify-center mx-auto mb-2 text-2xl font-bold text-[#FFD600]">
+        <div className="w-16 h-16 rounded-full border-4 border-primary flex items-center justify-center mx-auto mb-2 text-2xl font-bold text-primary">
           10
         </div>
         <h2 className="text-xl font-bold">New Ride Request</h2>
@@ -130,7 +130,7 @@ const RideRequestPopup = ({ onAccept, onReject }: any) => (
       
       <div className="flex items-center gap-4 mb-6 bg-black/20 p-4 rounded-xl">
         <div className="flex flex-col items-center">
-          <div className="w-2 h-2 rounded-full bg-[#FFD600]" />
+          <div className="w-2 h-2 rounded-full bg-primary" />
           <div className="w-0.5 h-8 bg-white/20 my-1" />
           <div className="w-2 h-2 rounded-sm bg-red-500" />
         </div>
@@ -143,7 +143,7 @@ const RideRequestPopup = ({ onAccept, onReject }: any) => (
       <div className="flex justify-between items-center mb-6 px-4">
         <div className="text-center">
           <div className="text-white/50 text-sm">Est. Fare</div>
-          <div className="text-xl font-bold text-[#FFD600]">$24.50</div>
+          <div className="text-xl font-bold text-primary">$24.50</div>
         </div>
         <div className="w-px h-8 bg-white/20" />
         <div className="text-center">
@@ -165,7 +165,7 @@ const NavigationScreen = ({ setScreen }: any) => (
     <div className="absolute top-6 left-6 right-6 z-10">
       <GlassCard className="p-4 bg-black/80 backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-[#FFD600] rounded-full flex items-center justify-center text-black">
+          <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-black">
             <Navigation size={24} />
           </div>
           <div>
@@ -183,7 +183,7 @@ const NavigationScreen = ({ setScreen }: any) => (
           </div>
           <div>
             <h3 className="font-bold">Aathi</h3>
-            <div className="flex items-center gap-1 text-sm text-[#FFD600]">
+            <div className="flex items-center gap-1 text-sm text-primary">
               <Star size={14} fill="currentColor" /> 4.8
             </div>
           </div>
@@ -199,7 +199,7 @@ const RideActive = ({ setScreen }: any) => (
   <MapBackground>
     <div className="absolute top-6 left-6 right-6 z-10">
       <GlassCard className="p-4 bg-black/80 backdrop-blur-xl text-center">
-        <div className="text-sm text-[#FFD600] font-bold mb-1">RIDE IN PROGRESS</div>
+        <div className="text-sm text-primary font-bold mb-1">RIDE IN PROGRESS</div>
         <div className="text-3xl font-bold">15 min</div>
         <div className="text-sm text-white/70">to destination (8.5 km)</div>
       </GlassCard>
@@ -214,12 +214,12 @@ const EarningsPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold mb-6">Earnings</h1>
     <div className="flex bg-black/40 p-1 rounded-xl mb-6">
-      <button className="flex-1 py-2 rounded-lg bg-[#FFD600] text-black font-medium text-sm">Daily</button>
+      <button className="flex-1 py-2 rounded-lg bg-primary text-black font-medium text-sm">Daily</button>
       <button className="flex-1 py-2 rounded-lg text-white/70 font-medium text-sm">Weekly</button>
     </div>
     <GlassCard className="mb-8 text-center py-8">
       <div className="text-white/50 mb-2">Total Earnings Today</div>
-      <div className="text-5xl font-bold text-[#FFD600]">$124.50</div>
+      <div className="text-5xl font-bold text-primary">$124.50</div>
       <div className="text-sm text-green-400 mt-2">+12% from yesterday</div>
     </GlassCard>
     <h3 className="font-bold mb-4">Ride History</h3>
@@ -231,7 +231,7 @@ const EarningsPage = () => (
             <div className="text-sm text-white/50">10:30 AM • 8.5 km</div>
           </div>
           <div className="text-right">
-            <div className="font-bold text-[#FFD600]">${(15 + i * 4.5).toFixed(2)}</div>
+            <div className="font-bold text-primary">${(15 + i * 4.5).toFixed(2)}</div>
             <div className="text-xs text-white/50">Card</div>
           </div>
         </GlassCard>
@@ -258,13 +258,13 @@ const DriverVerification = () => (
         </div>
       </GlassCard>
       
-      <GlassCard className="border-[#FFD600]/30">
+      <GlassCard className="border-primary/30">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="font-bold">Vehicle RC</h3>
             <p className="text-sm text-white/50">Uploaded 2 days ago</p>
           </div>
-          <div className="bg-[#FFD600]/20 text-[#FFD600] text-xs px-2 py-1 rounded-full flex items-center gap-1">
+          <div className="bg-primary/20 text-primary text-xs px-2 py-1 rounded-full flex items-center gap-1">
             <Clock size={12} /> Pending
           </div>
         </div>
@@ -289,11 +289,11 @@ const DriverVerification = () => (
 const DriverProfile = () => (
   <div className="p-6">
     <div className="text-center mb-8">
-      <div className="w-24 h-24 bg-gray-600 rounded-full overflow-hidden mx-auto mb-4 border-2 border-[#FFD600]">
+      <div className="w-24 h-24 bg-gray-600 rounded-full overflow-hidden mx-auto mb-4 border-2 border-primary">
         <img src="https://picsum.photos/seed/driver/150/150" alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
       </div>
       <h1 className="text-2xl font-bold">Mike Driver</h1>
-      <div className="flex items-center justify-center gap-1 text-[#FFD600] mt-1">
+      <div className="flex items-center justify-center gap-1 text-primary mt-1">
         <Star size={16} fill="currentColor" /> 4.9 Rating
       </div>
     </div>

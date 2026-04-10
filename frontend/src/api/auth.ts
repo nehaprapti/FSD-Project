@@ -19,3 +19,8 @@ export const signupDriver = async (data: any) => {
   const response = await api.post('/auth/signup/driver', data);
   return response.data;
 };
+
+export const verifyOtp = async (data: { userId: string; otp: string }) => {
+  const response = await api.post('/auth/verify-otp', data);
+  return response.data;
+};

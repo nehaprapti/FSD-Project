@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["active", "blocked", "pending"],
       default: "pending"
+    },
+    otp: {
+      type: String,
+      default: null
+    },
+    otpExpires: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }
