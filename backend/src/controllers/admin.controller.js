@@ -8,7 +8,8 @@ import {
   listRidesAdmin,
   getRideDetailAdmin,
   listDriversAdmin,
-  listComplaints
+  listComplaints,
+  deleteUserById
 } from "../services/admin.service.js";
 
 export const getDashboard = async (req, res, next) => {
@@ -103,6 +104,14 @@ export const getDrivers = async (req, res, next) => {
 export const getComplaints = async (req, res, next) => {
   try {
     const data = await listComplaints(req.query);
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+export const deleteUser = async (req, res, next) => {
+  try {
+    const data = await deleteUserById(req.params.userId);
     return res.status(200).json(data);
   } catch (error) {
     return next(error);

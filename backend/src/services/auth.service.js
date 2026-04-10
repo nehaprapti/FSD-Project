@@ -18,14 +18,14 @@ const sanitizeUser = (user) => ({
   email: user.email,
   role: user.role,
   phone: user.phone,
-  status: user.status
+  status: user.status,
 });
 
 const createToken = ({ user, extraClaims = {} }) => {
   return generateAccessToken({
     userId: user._id.toString(),
     role: user.role,
-    ...extraClaims
+    ...extraClaims,
   });
 };
 
@@ -41,7 +41,14 @@ const assertUniqueEmail = async (email) => {
 };
 
 export const signupPassenger = async (payload) => {
-  const { name, email, password, phone, savedLocations = [], preferences = {} } = payload;
+  const {
+    name,
+    email,
+    password,
+    phone,
+    savedLocations = [],
+    preferences = {},
+  } = payload;
 
   if (typeof password !== "string") {
     throw makeError("Invalid password", 400);
@@ -62,7 +69,7 @@ export const signupPassenger = async (payload) => {
     role: "passenger",
     status: "pending",
     otp,
-    otpExpires
+    otpExpires,
   });
 
   try {
@@ -70,20 +77,20 @@ export const signupPassenger = async (payload) => {
       userId: user._id,
       savedLocations,
       preferences,
-      tripHistory: []
+      tripHistory: [],
     });
 
     await sendEmail({
       to: user.email,
-      subject: "Verify your HOLOID Account",
-      text: `Your OTP for HOLOID registration is: ${otp}. It will expire in 10 minutes.`,
-      html: `<h1>Welcome to HOLOID!</h1><p>Thank you for signing up. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`
+      subject: "Verify your Rider Hub Account",
+      text: `Your OTP for Rider Hub registration is: ${otp}. It will expire in 10 minutes.`,
+      html: `<h1>Welcome to Rider Hub!</h1><p>Thank you for signing up. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`,
     });
 
     return {
       message: "OTP sent to your email",
       userId: user._id,
-      email: user.email
+      email: user.email,
     };
   } catch (error) {
     await User.findByIdAndDelete(user._id);
@@ -92,7 +99,16 @@ export const signupPassenger = async (payload) => {
 };
 
 export const signupDriver = async (payload) => {
-  const { name, email, password, phone, vehicleInfo: _vehicleInfo, licenseInfo, currentLocation, vehicle } = payload;
+  const {
+    name,
+    email,
+    password,
+    phone,
+    vehicleInfo: _vehicleInfo,
+    licenseInfo,
+    currentLocation,
+    vehicle,
+  } = payload;
 
   if (typeof password !== "string") {
     throw makeError("Invalid password", 400);
@@ -115,7 +131,7 @@ export const signupDriver = async (payload) => {
     role: "driver",
     status: "pending",
     otp,
-    otpExpires
+    otpExpires,
   });
 
   try {
@@ -124,10 +140,13 @@ export const signupDriver = async (payload) => {
       model: vehicleInfo.model ?? "Unknown",
       plate: vehicleInfo.plate ?? "UNKNOWN",
       color: vehicleInfo.color ?? "Unknown",
-      seats: vehicleInfo.seats ?? 4
+      seats: vehicleInfo.seats ?? 4,
     };
 
-    const filledLicenseInfo = licenseInfo ?? { number: "UNKNOWN", expiry: new Date("2100-01-01") };
+    const filledLicenseInfo = licenseInfo ?? {
+      number: "UNKNOWN",
+      expiry: new Date("2100-01-01"),
+    };
 
     const driver = await Driver.create({
       _id: user._id,
@@ -138,20 +157,20 @@ export const signupDriver = async (payload) => {
       availabilityStatus: false,
       currentLocation,
       averageRating: 0,
-      totalTrips: 0
+      totalTrips: 0,
     });
 
     await sendEmail({
       to: user.email,
-      subject: "Verify your HOLOID Driver Account",
-      text: `Your OTP for HOLOID driver registration is: ${otp}. It will expire in 10 minutes.`,
-      html: `<h1>Welcome to HOLOID!</h1><p>Thank you for applying as a driver. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`
+      subject: "Verify your Rider Hub Driver Account",
+      text: `Your OTP for Rider Hub driver registration is: ${otp}. It will expire in 10 minutes.`,
+      html: `<h1>Welcome to Rider Hub!</h1><p>Thank you for applying as a driver. Your OTP for registration is:</p><h2 style="color: #FFD600; font-size: 32px; letter-spacing: 5px;">${otp}</h2><p>This code will expire in 10 minutes.</p>`,
     });
 
     return {
       message: "OTP sent to your email",
       userId: user._id,
-      email: user.email
+      email: user.email,
     };
   } catch (error) {
     await User.findByIdAndDelete(user._id);
@@ -196,13 +215,13 @@ export const loginUser = async (payload) => {
       user: sanitizeUser(user),
       token: createToken({ user, extraClaims: { isVerifiedDriver } }),
       limitedAccess: !isVerifiedDriver,
-      driverVerificationStatus: driver?.verificationStatus ?? "pending"
+      driverVerificationStatus: driver?.verificationStatus ?? "pending",
     };
   }
 
   return {
     user: sanitizeUser(user),
-    token: createToken({ user })
+    token: createToken({ user }),
   };
 };
 
@@ -215,7 +234,10 @@ export const loginAdmin = async (payload) => {
   // Check against .env credentials
   if (email === env.adminUser && password === env.adminPass) {
     // Return a virtual admin user or find/create one in DB
-    let user = await User.findOne({ email: email.toLowerCase(), role: "admin" });
+    let user = await User.findOne({
+      email: email.toLowerCase(),
+      role: "admin",
+    });
     if (!user) {
       // Create a virtual user object for the token
       user = {
@@ -223,22 +245,25 @@ export const loginAdmin = async (payload) => {
         name: "Administrator",
         email: email.toLowerCase(),
         role: "admin",
-        status: "active"
+        status: "active",
       };
-      
+
       return {
         user: sanitizeUser({ ...user, _id: "admin-id" }), // Pass something that sanitizeUser can handle
-        token: generateAccessToken({ userId: "admin-id", role: "admin" })
+        token: generateAccessToken({ userId: "admin-id", role: "admin" }),
       };
     }
 
     return {
       user: sanitizeUser(user),
-      token: createToken({ user })
+      token: createToken({ user }),
     };
   }
 
-  const user = await User.findOne({ email: email.toLowerCase(), role: "admin" });
+  const user = await User.findOne({
+    email: email.toLowerCase(),
+    role: "admin",
+  });
   if (!user) {
     throw makeError("Invalid credentials", 401);
   }
@@ -254,7 +279,7 @@ export const loginAdmin = async (payload) => {
 
   return {
     user: sanitizeUser(user),
-    token: createToken({ user })
+    token: createToken({ user }),
   };
 };
 
@@ -275,6 +300,6 @@ export const verifyOtpEmail = async ({ userId, otp }) => {
 
   return {
     user: sanitizeUser(user),
-    token: createToken({ user })
+    token: createToken({ user }),
   };
 };

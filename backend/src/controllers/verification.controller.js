@@ -8,10 +8,19 @@ import {
 
 export const uploadVerification = async (req, res, next) => {
   try {
+    const documentType = req.body.documentType || req.body.type;
+    const fileRef = req.file 
+      ? `/uploads/verification/${req.file.filename}` 
+      : (req.body.fileRef || req.body.fileMeta?.filename);
+
+    if (!documentType || !fileRef) {
+       return res.status(400).json({ success: false, message: "documentType and file are required" });
+    }
+
     const data = await uploadVerificationDocument({
       driverUserId: req.user.userId,
-      documentType: req.body.type ?? req.body.documentType,
-      fileRef: req.body.fileMeta?.filename ?? req.body.fileRef
+      documentType,
+      fileRef
     });
     const obj = data && typeof data.toObject === 'function' ? data.toObject() : data;
     return res.status(201).json({ success: true, ...obj });

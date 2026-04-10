@@ -38,8 +38,8 @@ const driverSchema = new mongoose.Schema(
     },
     verificationStatus: {
       type: String,
-      enum: ["pending", "under_review", "approved", "rejected"],
-      default: "pending"
+      enum: ["incomplete", "pending", "under_review", "approved", "rejected"],
+      default: "incomplete"
     },
     availabilityStatus: {
       type: Boolean,

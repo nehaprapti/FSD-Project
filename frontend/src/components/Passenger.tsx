@@ -33,10 +33,10 @@ import {
 
 export const PassengerModule = () => {
   const [screen, setScreen] = useState("dashboard");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.reload();
   };
 
@@ -70,66 +70,106 @@ export const PassengerModule = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen relative overflow-hidden">
-      <div className="glass-panel px-6 py-4 flex justify-between items-center z-40 absolute top-0 left-0 right-0 rounded-none border-x-0 border-t-0">
-        <div className="font-bold text-xl flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">
-            R
-          </div>
-          RideApp
+    <div className="flex bg-dark h-screen overflow-hidden text-white relative">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-72 h-full glass-panel border-y-0 border-l-0 rounded-none flex-col z-50">
+        <div className="p-8 border-b border-white/10 flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-black font-bold shadow-[0_0_20px_rgba(255,214,0,0.4)]">R</div>
+          <span className="text-xl font-black tracking-tight">RideApp</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right hidden sm:block">
-            <div className="text-sm font-bold leading-none">
-              {user.name || "User"}
-            </div>
-            <div className="text-[10px] text-white/50 leading-none mt-1">
-              Passenger
-            </div>
-          </div>
-          <button
+        
+        <div className="flex-1 py-10 px-4 flex flex-col gap-3">
+          {[
+            { id: 'dashboard', icon: Home, label: 'Home' },
+            { id: 'book', icon: MapIcon, label: 'Book Ride' },
+            { id: 'history', icon: Clock, label: 'My Trips' },
+            { id: 'profile', icon: User, label: 'My Account' }
+          ].map(item => (
+            <button 
+              key={item.id} 
+              onClick={() => setScreen(item.id)}
+              className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${screen === item.id || (screen !== "dashboard" && screen !== "history" && screen !== "profile" && item.id === "book") ? 'bg-primary text-black font-bold shadow-lg' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
+            >
+              <item.icon size={22} strokeWidth={screen === item.id ? 2.5 : 2} />
+              <span className="text-sm">{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="p-4 border-t border-white/10">
+          <button 
             onClick={handleLogout}
-            className="p-2 bg-white/5 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors"
+            className="w-full flex items-center gap-4 p-4 rounded-2xl text-red-400 hover:bg-red-500/10 transition-all font-bold"
           >
-            <LogOut size={20} />
+            <LogOut size={22} />
+            <span className="text-sm">Sign Out</span>
           </button>
         </div>
       </div>
 
-      <div className="flex-1 pt-[72px] pb-[80px] overflow-y-auto relative">
-        <ScreenTransition keyId={screen} className="h-full">
-          {renderScreen()}
-        </ScreenTransition>
-      </div>
-
-      <div className="glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0">
-        {[
-          { id: "dashboard", icon: Home, label: "Home" },
-          { id: "book", icon: MapIcon, label: "Book" },
-          { id: "history", icon: Clock, label: "History" },
-          { id: "profile", icon: User, label: "Profile" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setScreen(tab.id)}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${screen === tab.id || (screen !== "dashboard" && screen !== "history" && screen !== "profile" && tab.id === "book") ? "text-primary" : "text-white/50 hover:text-white"}`}
-          >
-            <tab.icon size={24} />
-            <span className="text-[10px] font-medium">{tab.label}</span>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Mobile Header */}
+        <div className="lg:hidden glass-panel px-6 py-4 flex justify-between items-center z-40 relative rounded-none border-x-0 border-t-0">
+          <div className="font-bold text-xl flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">R</div>
+            RideApp
+          </div>
+          <button onClick={handleLogout} className="p-2 bg-white/5 rounded-full">
+            <LogOut size={20} className="text-white/70" />
           </button>
-        ))}
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto relative pb-20 lg:pb-0">
+          <ScreenTransition keyId={screen} className="h-full">
+            {renderScreen()}
+          </ScreenTransition>
+        </div>
+
+        {/* Mobile Navigation */}
+        <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
+          {[
+            { id: "dashboard", icon: Home, label: "Home" },
+            { id: "book", icon: MapIcon, label: "Book" },
+            { id: "history", icon: Clock, label: "History" },
+            { id: "profile", icon: User, label: "Profile" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setScreen(tab.id)}
+              className={`flex flex-col items-center gap-1 p-2 transition-colors ${screen === tab.id || (screen !== "dashboard" && screen !== "history" && screen !== "profile" && tab.id === "book") ? "text-primary" : "text-white/50"}`}
+            >
+              <tab.icon size={24} />
+              <span className="text-[10px] font-medium">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
 const PassengerDashboard = ({ setScreen, user }: any) => (
-  <div className="p-6">
-    <div className="mb-8">
-      <h1 className="text-2xl font-bold">
-        Hi, {user.name?.split(" ")[0] || "User"} 👋
-      </h1>
-      <p className="text-white/50">Where are we going today?</p>
+  <div className="max-w-2xl mx-auto p-6">
+    <div className="mb-8 flex justify-between items-center">
+      <div>
+        <h1 className="text-3xl font-bold">
+          Hi, {user.name?.split(" ")[0] || "User"} 👋
+        </h1>
+        <p className="text-white/50">Where are we going today?</p>
+      </div>
+      <div className="hidden md:flex gap-4">
+        {[
+          { label: "Rides", value: "42" },
+          { label: "Rating", value: "4.9" },
+        ].map((stat, i) => (
+          <div key={i} className="text-right">
+            <div className="text-white/30 text-xs uppercase font-bold">{stat.label}</div>
+            <div className="text-xl font-bold text-primary">{stat.value}</div>
+          </div>
+        ))}
+      </div>
     </div>
     <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x">
       {[

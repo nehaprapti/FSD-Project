@@ -13,14 +13,14 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const savedUser = sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
     if (savedUser && token) {
       try {
         const user = JSON.parse(savedUser);
         setRole(user.role);
       } catch (e) {
-        localStorage.clear();
+        sessionStorage.clear();
       }
     }
     setIsInitialized(true);

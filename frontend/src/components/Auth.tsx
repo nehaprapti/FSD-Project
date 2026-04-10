@@ -55,8 +55,8 @@ export const AuthModule = ({
     try {
       const data = await login({ email, password });
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
       setRole(data.user.role);
     } catch (err: any) {
       setError(
@@ -105,8 +105,8 @@ export const AuthModule = ({
 
       const data = await verifyOtp({ userId: pendingUserId, otp });
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
       setRole(data.user.role);
     } catch (err: any) {
       setError(

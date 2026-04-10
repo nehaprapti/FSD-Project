@@ -4,7 +4,12 @@ import User from "../models/user.model.js";
 import { emitToUser, emitToRole } from "../sockets/socketRegistry.js";
 import { sendEmail } from "./mail.service.js";
 
-const REQUIRED_DOCUMENT_TYPES = ["license", "id_proof", "vehicle_registration", "insurance"];
+const REQUIRED_DOCUMENT_TYPES = [
+  "license",
+  "id_proof",
+  "vehicle_registration",
+  "insurance",
+];
 
 const makeError = (message, statusCode) => {
   const error = new Error(message);
@@ -15,7 +20,7 @@ const makeError = (message, statusCode) => {
 const ensureDriverExists = async (driverUserId) => {
   const [user, driverProfile] = await Promise.all([
     User.findOne({ _id: driverUserId, role: "driver" }),
-    Driver.findOne({ userId: driverUserId })
+    Driver.findOne({ userId: driverUserId }),
   ]);
 
   if (!user || !driverProfile) {
@@ -27,13 +32,21 @@ const ensureDriverExists = async (driverUserId) => {
 
 const computeOverallVerificationStatus = (docs) => {
   const docsByType = new Map(docs.map((doc) => [doc.documentType, doc]));
-  const missingDocuments = REQUIRED_DOCUMENT_TYPES.filter((docType) => !docsByType.has(docType));
-  const rejectedDocuments = docs.filter((doc) => doc.reviewStatus === "rejected");
-  const pendingOrReviewDocs = docs.filter((doc) => ["pending", "under_review"].includes(doc.reviewStatus));
+  const missingDocuments = REQUIRED_DOCUMENT_TYPES.filter(
+    (docType) => !docsByType.has(docType),
+  );
+  const rejectedDocuments = docs.filter(
+    (doc) => doc.reviewStatus === "rejected",
+  );
+  const pendingOrReviewDocs = docs.filter((doc) =>
+    ["pending", "under_review"].includes(doc.reviewStatus),
+  );
 
   const allDocumentsSubmitted = missingDocuments.length === 0;
   const anyRejected = rejectedDocuments.length > 0;
-  const allApproved = allDocumentsSubmitted && docs.every((doc) => doc.reviewStatus === "approved");
+  const allApproved =
+    allDocumentsSubmitted &&
+    docs.every((doc) => doc.reviewStatus === "approved");
 
   let overallStatus = "incomplete";
   if (allApproved) {
@@ -52,11 +65,15 @@ const computeOverallVerificationStatus = (docs) => {
     rejectedDocuments,
     pendingOrReviewDocs,
     allApproved,
-    overallStatus
+    overallStatus,
   };
 };
 
-export const uploadVerificationDocument = async ({ driverUserId, documentType, fileRef }) => {
+export const uploadVerificationDocument = async ({
+  driverUserId,
+  documentType,
+  fileRef,
+}) => {
   await ensureDriverExists(driverUserId);
 
   if (!documentType || !fileRef) {
@@ -72,22 +89,22 @@ export const uploadVerificationDocument = async ({ driverUserId, documentType, f
         fileRef,
         reviewStatus: "pending",
         remarks: null,
-        uploadedAt: new Date()
-      }
+        uploadedAt: new Date(),
+      },
     },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, new: true, runValidators: true },
   );
 
   await Driver.findOneAndUpdate(
-    { userId: driverUserId, verificationStatus: "rejected" },
-    { $set: { verificationStatus: "under_review", availabilityStatus: false } }
+    { userId: driverUserId, verificationStatus: { $in: ["incomplete", "rejected"] } },
+    { $set: { verificationStatus: "pending", availabilityStatus: false } },
   );
 
   emitToRole("admin", "admin:ride_feed", {
     type: "verification_uploaded",
     driverUserId: String(driverUserId),
     documentType,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   return verificationDoc;
@@ -95,7 +112,9 @@ export const uploadVerificationDocument = async ({ driverUserId, documentType, f
 
 export const getDriverVerificationStatus = async (driverUserId) => {
   const { driverProfile } = await ensureDriverExists(driverUserId);
-  const docs = await Verification.find({ driverId: driverUserId }).sort({ documentType: 1, updatedAt: -1 }).lean();
+  const docs = await Verification.find({ driverId: driverUserId })
+    .sort({ documentType: 1, updatedAt: -1 })
+    .lean();
 
   const summary = computeOverallVerificationStatus(docs);
 
@@ -103,13 +122,13 @@ export const getDriverVerificationStatus = async (driverUserId) => {
     driverId: String(driverUserId),
     verificationStatus: driverProfile.verificationStatus,
     ...summary,
-    documents: docs
+    documents: docs,
   };
 };
 
 export const getVerificationQueue = async () => {
   const queuedDocs = await Verification.find({
-    reviewStatus: { $in: ["pending", "under_review"] }
+    reviewStatus: { $in: ["pending", "under_review"] },
   })
     .populate("driverId", "name email phone")
     .sort({ uploadedAt: 1, updatedAt: 1 })
@@ -124,7 +143,7 @@ export const getVerificationQueue = async () => {
       queueByDriver.set(key, {
         driverId: key,
         driver: doc.driverId,
-        documents: []
+        documents: [],
       });
     }
 
@@ -134,7 +153,10 @@ export const getVerificationQueue = async () => {
   return Array.from(queueByDriver.values());
 };
 
-export const approveDriverVerification = async ({ driverUserId, adminUserId }) => {
+export const approveDriverVerification = async ({
+  driverUserId,
+  adminUserId,
+}) => {
   await ensureDriverExists(driverUserId);
 
   const docs = await Verification.find({ driverId: driverUserId });
@@ -143,29 +165,37 @@ export const approveDriverVerification = async ({ driverUserId, adminUserId }) =
   if (!summary.allDocumentsSubmitted) {
     throw makeError(
       `Cannot approve driver until all required documents are uploaded: ${summary.missingDocuments.join(", ")}`,
-      400
+      400,
     );
   }
 
   if (summary.anyRejected) {
-    const rejectedTypes = summary.rejectedDocuments.map((doc) => doc.documentType).join(", ");
-    throw makeError(`Cannot approve driver with rejected documents pending re-upload: ${rejectedTypes}`, 400);
+    const rejectedTypes = summary.rejectedDocuments
+      .map((doc) => doc.documentType)
+      .join(", ");
+    throw makeError(
+      `Cannot approve driver with rejected documents pending re-upload: ${rejectedTypes}`,
+      400,
+    );
   }
 
   await Verification.updateMany(
-    { driverId: driverUserId, reviewStatus: { $in: ["pending", "under_review"] } },
+    {
+      driverId: driverUserId,
+      reviewStatus: { $in: ["pending", "under_review"] },
+    },
     {
       $set: {
         reviewStatus: "approved",
-        remarks: null
-      }
-    }
+        remarks: null,
+      },
+    },
   );
 
   const driver = await Driver.findOneAndUpdate(
     { userId: driverUserId },
     { $set: { verificationStatus: "approved" } },
-    { new: true }
+    { new: true },
   );
 
   if (!driver) {
@@ -175,62 +205,79 @@ export const approveDriverVerification = async ({ driverUserId, adminUserId }) =
   emitToUser(String(driverUserId), "driver:verification_status", {
     status: "approved",
     reviewedBy: String(adminUserId),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   const { user } = await ensureDriverExists(driverUserId);
   await sendEmail({
     to: user.email,
-    subject: "Driver Account Approved! - HOLOID",
-    text: `Congratulations ${user.name}! Your HOLOID driver account has been approved. You can now start accepting rides.`,
-    html: `<h1>Account Approved!</h1><p>Congratulations <strong>${user.name}</strong>!</p><p>Your HOLOID driver account has been approved. You can now go online and start accepting rides.</p>`
+    subject: "Driver Account Approved! - Rider Hub",
+    text: `Congratulations ${user.name}! Your Rider Hub driver account has been approved. You can now start accepting rides.`,
+    html: `<h1>Account Approved!</h1><p>Congratulations <strong>${user.name}</strong>!</p><p>Your Rider Hub driver account has been approved. You can now go online and start accepting rides.</p>`,
   });
 
   return {
     driverId: String(driverUserId),
-    verificationStatus: driver.verificationStatus
+    verificationStatus: driver.verificationStatus,
   };
 };
 
-export const rejectDriverVerification = async ({ driverUserId, adminUserId, documentType, reason }) => {
+export const rejectDriverVerification = async ({
+  driverUserId,
+  adminUserId,
+  documentType,
+  reason,
+}) => {
   await ensureDriverExists(driverUserId);
 
   if (!documentType) {
     // Admin rejected the driver's account generally (no single document specified)
+    // We reject ALL documents so they must all be reconsidered/re-uploaded
     await Verification.updateMany(
-      { driverId: driverUserId, reviewStatus: { $in: ["pending", "under_review"] } },
-      { $set: { reviewStatus: "rejected", remarks: reason } }
+      {
+        driverId: driverUserId,
+      },
+      { $set: { reviewStatus: "rejected", remarks: reason } },
     );
 
     const driver = await Driver.findOneAndUpdate(
       { userId: driverUserId },
-      { $set: { verificationStatus: "rejected", availabilityStatus: false, verificationReason: reason } },
-      { new: true }
+      {
+        $set: {
+          verificationStatus: "rejected",
+          availabilityStatus: false,
+          verificationReason: reason,
+        },
+      },
+      { new: true },
     );
 
     emitToUser(String(driverUserId), "driver:verification_status", {
       status: "rejected",
       reason,
       reviewedBy: String(adminUserId),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     const { user } = await ensureDriverExists(driverUserId);
     await sendEmail({
       to: user.email,
-      subject: "Driver Account Verification Update - HOLOID",
+      subject: "Driver Account Verification Update - Rider Hub",
       text: `Hello ${user.name}, your driver application was unfortunately rejected. Reason: ${reason}`,
-      html: `<h1>Application Update</h1><p>Hello ${user.name},</p><p>Your driver application was unfortunately rejected for the following reason:</p><blockquote>${reason}</blockquote><p>Please update your documents and try again.</p>`
+      html: `<h1>Application Update</h1><p>Hello ${user.name},</p><p>Your driver application was unfortunately rejected for the following reason:</p><blockquote>${reason}</blockquote><p>Please update your documents and try again.</p>`,
     });
 
     return {
       driverId: String(driverUserId),
       status: "rejected",
-      reason
+      reason,
     };
   }
 
-  const targetDoc = await Verification.findOne({ driverId: driverUserId, documentType });
+  const targetDoc = await Verification.findOne({
+    driverId: driverUserId,
+    documentType,
+  });
   if (!targetDoc) {
     throw makeError(`Document ${documentType} not found for driver`, 404);
   }
@@ -243,16 +290,22 @@ export const rejectDriverVerification = async ({ driverUserId, adminUserId, docu
     {
       driverId: driverUserId,
       _id: { $ne: targetDoc._id },
-      reviewStatus: "pending"
+      reviewStatus: "pending",
     },
     {
-      $set: { reviewStatus: "under_review" }
-    }
+      $set: { reviewStatus: "under_review" },
+    },
   );
 
   await Driver.findOneAndUpdate(
     { userId: driverUserId },
-    { $set: { verificationStatus: "rejected", availabilityStatus: false, verificationReason: reason } }
+    {
+      $set: {
+        verificationStatus: "rejected",
+        availabilityStatus: false,
+        verificationReason: reason,
+      },
+    },
   );
 
   emitToUser(String(driverUserId), "driver:verification_status", {
@@ -260,14 +313,14 @@ export const rejectDriverVerification = async ({ driverUserId, adminUserId, docu
     documentType,
     reason,
     reviewedBy: String(adminUserId),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   return {
     driverId: String(driverUserId),
     documentType,
     status: "rejected",
-    reason
+    reason,
   };
 };
 

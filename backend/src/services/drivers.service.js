@@ -1,4 +1,5 @@
 import User from "../models/user.model.js";
+import Driver from "../models/driver.model.js";
 
 const makeError = (message, statusCode) => {
   const error = new Error(message);
@@ -7,32 +8,61 @@ const makeError = (message, statusCode) => {
 };
 
 export const listDrivers = async ({ isOnline }) => {
-  const query = { role: "driver" };
+  const query = {};
   if (isOnline !== undefined) {
-    query["driverProfile.isOnline"] = isOnline === true || isOnline === "true";
+    query.availabilityStatus = isOnline === true || isOnline === "true";
   }
 
-  return User.find(query).select("-password").sort({ createdAt: -1 });
+  return Driver.find(query).populate("userId", "-passwordHash").sort({ createdAt: -1 });
 };
 
 export const getDriverProfile = async (driverId) => {
-  const driver = await User.findOne({ _id: driverId, role: "driver" }).select("-password");
+  const driver = await Driver.findOne({ userId: driverId }).populate("userId", "-passwordHash");
   if (!driver) {
-    throw makeError("Driver not found", 404);
+    throw makeError("Driver profile not found", 404);
   }
 
   return driver;
 };
 
 export const updateDriverAvailability = async (driverId, isOnline) => {
-  const driver = await User.findOneAndUpdate(
-    { _id: driverId, role: "driver" },
-    { $set: { "driverProfile.isOnline": Boolean(isOnline) } },
+  const driver = await Driver.findOneAndUpdate(
+    { userId: driverId },
+    { $set: { availabilityStatus: Boolean(isOnline) } },
     { new: true }
-  ).select("-password");
+  ).populate("userId", "-passwordHash");
 
   if (!driver) {
-    throw makeError("Driver not found", 404);
+    throw makeError("Driver profile not found", 404);
+  }
+
+  return driver;
+};
+
+export const updateDriverProfile = async (driverId, updateData) => {
+  const { name, phone, vehicleInfo, licenseInfo } = updateData;
+
+  // Update User info if name or phone provided
+  if (name || phone) {
+    const userUpdate = {};
+    if (name) userUpdate.name = name;
+    if (phone) userUpdate.phone = phone;
+    await User.findByIdAndUpdate(driverId, { $set: userUpdate });
+  }
+
+  // Update Driver info
+  const driverUpdate = {};
+  if (vehicleInfo) driverUpdate.vehicleInfo = vehicleInfo;
+  if (licenseInfo) driverUpdate.licenseInfo = licenseInfo;
+
+  const driver = await Driver.findOneAndUpdate(
+    { userId: driverId },
+    { $set: driverUpdate },
+    { new: true, runValidators: true }
+  ).populate("userId", "-passwordHash");
+
+  if (!driver) {
+    throw makeError("Driver profile not found", 404);
   }
 
   return driver;

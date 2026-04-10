@@ -187,3 +187,15 @@ export const listComplaints = async ({ page = 1, limit = 50 } = {}) => {
 
   return { items, totalCount, page: p, limit: l };
 };
+
+export const deleteUserById = async (userId) => {
+  const user = await User.findByIdAndDelete(userId);
+  if (!user) throw makeError("User not found", 404);
+  
+  // If driver, also clear driver profile
+  if (user.role === 'driver') {
+    await Driver.findOneAndDelete({ userId });
+  }
+  
+  return { success: true, message: "User deleted successfully" };
+};

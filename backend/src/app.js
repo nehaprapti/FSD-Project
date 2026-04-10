@@ -4,6 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import env from "./config/env.js";
+import path from "path";
+import { fileURLToPath } from "url";
 import apiRoutes from "./routes/index.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import http from "http";
@@ -33,7 +35,10 @@ const limiter = rateLimit({
 
 const corsOrigin = env.corsOrigin === "*" ? "*" : env.corsOrigin.split(",").map((origin) => origin.trim());
 
-app.use(helmet());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: corsOrigin }));
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
@@ -46,6 +51,7 @@ app.get("/health", (req, res) => {
 if (process.env.NODE_ENV !== "test") {
   app.use("/api", limiter);
 }
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api", apiRoutes);
 
 app.use((req, res) => {

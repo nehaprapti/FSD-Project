@@ -9,7 +9,8 @@ import {
 	getRides,
 	getRideDetail,
 	getDrivers,
-	getComplaints
+	getComplaints,
+	deleteUser
 } from "../controllers/admin.controller.js";
 import {
 	getAdminVerificationQueue,
@@ -40,6 +41,7 @@ router.patch("/verification/:driverId/approve", approveDriverVerificationByAdmin
 router.get("/users", getUsers);
 router.patch("/users/:userId/block", adminBlockUser);
 router.patch("/users/:userId/unblock", adminUnblockUser);
+router.delete("/users/:userId", deleteUser);
 
 // Admin rides
 router.get("/rides", getRides);
