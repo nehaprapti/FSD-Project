@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useLoadScript, Autocomplete } from '@react-google-maps/api';
+
+const libraries: "places"[] = ["places"];
 
 import {
   ScreenTransition,
@@ -479,56 +482,151 @@ const RideHistory = () => (
   </div>
 );
 
-const PassengerProfile = ({ setScreen, user, handleLogout }: any) => (
-  <div className="p-6">
-    <div className="text-center mb-8">
-      <div className="w-24 h-24 bg-gray-600 rounded-full overflow-hidden mx-auto mb-4 border-2 border-primary flex items-center justify-center text-3xl font-bold bg-dark text-primary">
-        {user?.name?.[0] || "P"}
+const PassengerProfile = ({ setScreen, user, handleLogout }: any) => {
+  const [homeLocation, setHomeLocation] = useState("Not set");
+  const [workLocation, setWorkLocation] = useState("Not set");
+  const [isEditing, setIsEditing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery (COD)");
+
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || "",
+    libraries: libraries,
+  });
+
+  const homeAutocompleteRef = useRef<any>(null);
+  const workAutocompleteRef = useRef<any>(null);
+
+  const onHomePlaceChanged = () => {
+    if (homeAutocompleteRef.current) {
+      const place = homeAutocompleteRef.current.getPlace();
+      if (place && place.formatted_address) {
+        setHomeLocation(place.formatted_address);
+      }
+    }
+  };
+
+  const onWorkPlaceChanged = () => {
+    if (workAutocompleteRef.current) {
+      const place = workAutocompleteRef.current.getPlace();
+      if (place && place.formatted_address) {
+        setWorkLocation(place.formatted_address);
+      }
+    }
+  };
+
+  return (
+    <div className="p-6">
+      <div className="text-center mb-8">
+        <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 border-2 border-primary flex items-center justify-center text-3xl font-bold bg-dark text-primary">
+          {user?.name?.[0] || "P"}
+        </div>
+        <h1 className="text-2xl font-bold">{user?.name || "Passenger"}</h1>
+        <p className="text-white/50">{user?.email || "passenger@example.com"}</p>
       </div>
-      <h1 className="text-2xl font-bold">{user?.name || "Passenger"}</h1>
-      <p className="text-white/50">{user?.email || "passenger@example.com"}</p>
+      
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Saved Locations</h2>
+        <Button 
+          variant="outline" 
+          className="text-xs py-1 h-auto" 
+          onClick={() => setIsEditing(!isEditing)}
+        >
+          {isEditing ? "Save" : "Edit"}
+        </Button>
+      </div>
+
+      <GlassCard className="mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 w-full">
+            <MapPinIcon className="text-primary shrink-0" />
+            <div className="flex-1 w-full overflow-hidden">
+              <div className="font-bold cursor-pointer">Home</div>
+              {isEditing ? (
+                isLoaded ? (
+                  <Autocomplete 
+                    onLoad={auto => homeAutocompleteRef.current = auto}
+                    onPlaceChanged={onHomePlaceChanged}
+                  >
+                    <input 
+                      type="text" 
+                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                      defaultValue={homeLocation === "Not set" ? "" : homeLocation}
+                      placeholder="Enter home address..."
+                      onChange={(e) => setHomeLocation(e.target.value)}
+                    />
+                  </Autocomplete>
+                ) : (
+                  <input 
+                      type="text" 
+                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                      value={homeLocation === "Not set" ? "" : homeLocation}
+                      onChange={(e) => setHomeLocation(e.target.value)}
+                      placeholder="Loading maps..."
+                  />
+                )
+              ) : (
+                <div className="text-sm text-white/50 truncate w-full">{homeLocation}</div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="h-px bg-white/10 w-full mb-4" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 w-full">
+            <Clock className="text-primary shrink-0" />
+            <div className="flex-1 w-full overflow-hidden">
+              <div className="font-bold cursor-pointer">Work</div>
+              {isEditing ? (
+                isLoaded ? (
+                  <Autocomplete 
+                    onLoad={auto => workAutocompleteRef.current = auto}
+                    onPlaceChanged={onWorkPlaceChanged}
+                  >
+                    <input 
+                      type="text" 
+                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                      defaultValue={workLocation === "Not set" ? "" : workLocation}
+                      placeholder="Enter work address..."
+                      onChange={(e) => setWorkLocation(e.target.value)}
+                    />
+                  </Autocomplete>
+                ) : (
+                  <input 
+                    type="text" 
+                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                    value={workLocation === "Not set" ? "" : workLocation}
+                    onChange={(e) => setWorkLocation(e.target.value)}
+                    placeholder="Loading maps..."
+                  />
+                )
+              ) : (
+                <div className="text-sm text-white/50 truncate w-full">{workLocation}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+      
+      <h2 className="font-bold text-lg mb-4 mt-6">Preferences</h2>
+      <GlassCard className="mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard className="text-primary" />
+            <div>
+              <div className="font-bold">Payment Methods</div>
+              <div className="text-sm text-green-400 font-medium">{paymentMethod}</div>
+            </div>
+          </div>
+          <ChevronRight className="text-white/30 cursor-pointer hover:text-white transition-colors" />
+        </div>
+      </GlassCard>
+      <Button
+        variant="danger"
+        className="w-full"
+        onClick={handleLogout}
+      >
+        Log Out
+      </Button>
     </div>
-    <GlassCard className="mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <MapPinIcon className="text-primary" />
-          <div>
-            <div className="font-bold">Home</div>
-            <div className="text-sm text-white/50">123 Main St, Apt 4B</div>
-          </div>
-        </div>
-        <ChevronRight className="text-white/30" />
-      </div>
-      <div className="h-px bg-white/10 w-full mb-4" />
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Clock className="text-primary" />
-          <div>
-            <div className="font-bold">Work</div>
-            <div className="text-sm text-white/50">Tech Park, Building C</div>
-          </div>
-        </div>
-        <ChevronRight className="text-white/30" />
-      </div>
-    </GlassCard>
-    <GlassCard className="mb-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <CreditCard className="text-primary" />
-          <div>
-            <div className="font-bold">Payment Methods</div>
-            <div className="text-sm text-white/50">Visa ending in 4242</div>
-          </div>
-        </div>
-        <ChevronRight className="text-white/30" />
-      </div>
-    </GlassCard>
-    <Button
-      variant="danger"
-      className="w-full"
-      onClick={handleLogout}
-    >
-      Log Out
-    </Button>
-  </div>
-);
+  );
+};

@@ -178,14 +178,7 @@ export const AuthModule = ({
                   {loading ? "Signing in..." : "Login"}
                 </Button>
               </form>
-              <div className="flex items-center gap-4 my-6">
-                <div className="h-px bg-white/10 flex-1" />
-                <span className="text-white/50 text-sm">OR</span>
-                <div className="h-px bg-white/10 flex-1" />
-              </div>
-              <Button variant="outline" className="w-full mb-6">
-                Continue with Google
-              </Button>
+
               <p className="text-center text-sm text-white/50">
                 Don't have an account?{" "}
                 <button
