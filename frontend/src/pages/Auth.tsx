@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ScreenTransition, GlassCard, Button, Input } from "./UI";
+import { ScreenTransition, GlassCard, Button, Input } from "../components/UI";
 import {
   Mail,
   Lock,

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthModule } from './components/Auth';
-import { PassengerModule } from './components/Passenger';
-import { DriverModule } from './components/Driver';
-import { AdminModule } from './components/Admin';
+import { AuthModule } from './pages/Auth';
+import { PassengerModule } from './pages/Passenger';
+import { DriverModule } from './pages/Driver';
+import { AdminModule } from './pages/Admin';
 import { AnimatePresence, motion } from 'motion/react';
 
 export type Role = 'auth' | 'passenger' | 'driver' | 'admin';
@@ -43,19 +43,19 @@ export default function App() {
             } 
           />
           <Route 
-            path="/passenger" 
+            path="/passenger/*" 
             element={
               role === 'passenger' ? <PassengerModule /> : <Navigate to="/login" replace />
             } 
           />
           <Route 
-            path="/driver" 
+            path="/driver/*" 
             element={
               role === 'driver' ? <DriverModule /> : <Navigate to="/login" replace />
             } 
           />
           <Route 
-            path="/admin" 
+            path="/admin/*" 
             element={
               role === 'admin' ? <AdminModule /> : <Navigate to="/login" replace />
             } 

@@ -1,11 +1,13 @@
 import React, { useState } from "react";
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+
 import {
   ScreenTransition,
   GlassCard,
   Button,
   Input,
   MapBackground,
-} from "./UI";
+} from "../components/UI";
 import {
   Home,
   MapPin,
@@ -32,42 +34,18 @@ import {
 } from "lucide-react";
 
 export const PassengerModule = () => {
-  const [screen, setScreen] = useState("dashboard");
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+  
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     sessionStorage.clear();
-    window.location.reload();
+    window.location.href = '/login';
   };
 
-  const renderScreen = () => {
-    switch (screen) {
-      case "dashboard":
-        return <PassengerDashboard setScreen={setScreen} user={user} />;
-      case "book":
-        return <BookRide setScreen={setScreen} />;
-      case "searching":
-        return <SearchingDriver setScreen={setScreen} />;
-      case "tracking":
-        return <RideTracking setScreen={setScreen} />;
-      case "active":
-        return <RideActive setScreen={setScreen} />;
-      case "completion":
-        return <RideCompletion setScreen={setScreen} />;
-      case "history":
-        return <RideHistory setScreen={setScreen} />;
-      case "profile":
-        return (
-          <PassengerProfile
-            setScreen={setScreen}
-            user={user}
-            handleLogout={handleLogout}
-          />
-        );
-      default:
-        return <PassengerDashboard setScreen={setScreen} user={user} />;
-    }
-  };
+  const setScreen = (path: string) => navigate(`/passenger/${path}`);
+  const currentScreen = location.pathname.split('/').pop() || 'dashboard';
 
   return (
     <div className="flex bg-dark h-screen overflow-hidden text-white relative">
@@ -88,9 +66,9 @@ export const PassengerModule = () => {
             <button 
               key={item.id} 
               onClick={() => setScreen(item.id)}
-              className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${screen === item.id || (screen !== "dashboard" && screen !== "history" && screen !== "profile" && item.id === "book") ? 'bg-primary text-black font-bold shadow-lg' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
+              className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${currentScreen === item.id || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && item.id === "book") || (item.id === "dashboard" && currentScreen === "") ? 'bg-primary text-black font-bold shadow-lg' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
             >
-              <item.icon size={22} strokeWidth={screen === item.id ? 2.5 : 2} />
+              <item.icon size={22} strokeWidth={currentScreen === item.id ? 2.5 : 2} />
               <span className="text-sm">{item.label}</span>
             </button>
           ))}
@@ -122,23 +100,33 @@ export const PassengerModule = () => {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto relative pb-20 lg:pb-0">
-          <ScreenTransition keyId={screen} className="h-full">
-            {renderScreen()}
+          <ScreenTransition keyId={location.pathname} className="h-full">
+            <Routes location={location}>
+              <Route path="dashboard" element={<PassengerDashboard setScreen={setScreen} user={user} />} />
+              <Route path="book" element={<BookRide setScreen={setScreen} />} />
+              <Route path="searching" element={<SearchingDriver setScreen={setScreen} />} />
+              <Route path="tracking" element={<RideTracking setScreen={setScreen} />} />
+              <Route path="active" element={<RideActive setScreen={setScreen} />} />
+              <Route path="completion" element={<RideCompletion setScreen={setScreen} />} />
+              <Route path="history" element={<RideHistory setScreen={setScreen} />} />
+              <Route path="profile" element={<PassengerProfile setScreen={setScreen} user={user} handleLogout={handleLogout} />} />
+              <Route path="" element={<Navigate to="dashboard" replace />} />
+            </Routes>
           </ScreenTransition>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation (Hidden on Desktop) */}
         <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
           {[
             { id: "dashboard", icon: Home, label: "Home" },
             { id: "book", icon: MapIcon, label: "Book" },
-            { id: "history", icon: Clock, label: "History" },
+            { id: "history", icon: Clock, label: "Trips" },
             { id: "profile", icon: User, label: "Profile" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setScreen(tab.id)}
-              className={`flex flex-col items-center gap-1 p-2 transition-colors ${screen === tab.id || (screen !== "dashboard" && screen !== "history" && screen !== "profile" && tab.id === "book") ? "text-primary" : "text-white/50"}`}
+              className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentScreen === tab.id || (tab.id === 'dashboard' && currentScreen === '') || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && tab.id === "book") ? "text-primary" : "text-white/50"}`}
             >
               <tab.icon size={24} />
               <span className="text-[10px] font-medium">{tab.label}</span>
@@ -491,19 +479,14 @@ const RideHistory = () => (
   </div>
 );
 
-const PassengerProfile = ({ setScreen }: any) => (
+const PassengerProfile = ({ setScreen, user, handleLogout }: any) => (
   <div className="p-6">
     <div className="text-center mb-8">
-      <div className="w-24 h-24 bg-gray-600 rounded-full overflow-hidden mx-auto mb-4 border-2 border-primary">
-        <img
-          src="https://picsum.photos/seed/passenger/150/150"
-          alt="Profile"
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
+      <div className="w-24 h-24 bg-gray-600 rounded-full overflow-hidden mx-auto mb-4 border-2 border-primary flex items-center justify-center text-3xl font-bold bg-dark text-primary">
+        {user?.name?.[0] || "P"}
       </div>
-      <h1 className="text-2xl font-bold">Aathi</h1>
-      <p className="text-white/50">aathi@example.com</p>
+      <h1 className="text-2xl font-bold">{user?.name || "Passenger"}</h1>
+      <p className="text-white/50">{user?.email || "passenger@example.com"}</p>
     </div>
     <GlassCard className="mb-4">
       <div className="flex items-center justify-between mb-4">
@@ -543,7 +526,7 @@ const PassengerProfile = ({ setScreen }: any) => (
     <Button
       variant="danger"
       className="w-full"
-      onClick={() => window.location.reload()}
+      onClick={handleLogout}
     >
       Log Out
     </Button>

@@ -71,9 +71,9 @@ export const ScreenTransition = ({
 );
 
 export const MapBackground = ({ children }: { children?: React.ReactNode }) => (
-  <div className="absolute inset-0 z-0 bg-[#0B0B0B] overflow-hidden">
+  <div className="absolute inset-0 z-0 bg-dark overflow-hidden">
     <div className="absolute inset-0 map-grid" />
-    <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-transparent to-transparent opacity-80" />
+    <div className="absolute inset-0 bg-linear-to-t from-dark via-transparent to-transparent opacity-80" />
     {children}
   </div>
 );
