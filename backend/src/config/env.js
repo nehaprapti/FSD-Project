@@ -12,7 +12,9 @@ const env = {
   port: parseNumber(process.env.PORT, 5000),
   mongoUri: process.env.MONGO_URI ?? "mongodb://127.0.0.1:27017/ride_hailing",
   jwtSecret: process.env.JWT_SECRET ?? "change-this-secret",
-  corsOrigin: process.env.CORS_ORIGIN ?? "*"
+  corsOrigin: process.env.CORS_ORIGIN ?? "*",
+  adminUser: process.env.ADMIN_USER ?? "admin",
+  adminPass: process.env.ADMIN_PASS ?? "admin"
 };
 
 export default env;

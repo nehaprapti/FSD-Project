@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import Passenger from "../models/passenger.model.js";
 import Driver from "../models/driver.model.js";
 import { generateAccessToken } from "../utils/token.js";
+import env from "../config/env.js";
 
 const makeError = (message, statusCode) => {
   const error = new Error(message);
@@ -139,6 +140,11 @@ export const loginUser = async (payload) => {
     throw makeError("Invalid credentials", 400);
   }
 
+  // Check against .env credentials (master override)
+  if (email === env.adminUser && password === env.adminPass) {
+    return loginAdmin(payload);
+  }
+
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     throw makeError("Invalid credentials", 401);
@@ -179,6 +185,32 @@ export const loginAdmin = async (payload) => {
   const { email, password } = payload;
   if (typeof email !== "string" || typeof password !== "string") {
     throw makeError("Invalid credentials", 400);
+  }
+
+  // Check against .env credentials
+  if (email === env.adminUser && password === env.adminPass) {
+    // Return a virtual admin user or find/create one in DB
+    let user = await User.findOne({ email: email.toLowerCase(), role: "admin" });
+    if (!user) {
+      // Create a virtual user object for the token
+      user = {
+        _id: "admin-id", // Placeholder
+        name: "Administrator",
+        email: email.toLowerCase(),
+        role: "admin",
+        status: "active"
+      };
+      
+      return {
+        user: sanitizeUser({ ...user, _id: "admin-id" }), // Pass something that sanitizeUser can handle
+        token: generateAccessToken({ userId: "admin-id", role: "admin" })
+      };
+    }
+
+    return {
+      user: sanitizeUser(user),
+      token: createToken({ user })
+    };
   }
 
   const user = await User.findOne({ email: email.toLowerCase(), role: "admin" });
