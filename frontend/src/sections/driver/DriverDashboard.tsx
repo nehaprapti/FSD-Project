@@ -179,7 +179,7 @@ export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
                 <DollarSign size={20} />
               </div>
-              <div className="text-3xl font-black text-white">${earnings?.totalAmount?.toFixed(2) || "0.00"}</div>
+              <div className="text-3xl font-black text-white">₹{earnings?.totalAmount?.toFixed(2) || "0.00"}</div>
               <div className="text-xs text-white/40 uppercase font-black tracking-widest mt-1">Today's Earnings</div>
             </GlassCard>
             <GlassCard className="hover:border-primary/30 transition-colors group">
@@ -220,7 +220,7 @@ export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
                     style={{ height: `${h}%` }}
                   />
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold border border-white/10 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                    ${(h * 1.5).toFixed(0)}
+                    ₹{(h * 1.5).toFixed(0)}
                   </div>
                 </div>
               ))}
@@ -249,7 +249,7 @@ export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
                   </div>
                   <div className="text-right shrink-0 pl-2">
                     <div className="text-sm font-black text-green-400">
-                      ${ride.finalFare || ride.estimatedFare || '0.00'}
+                      ₹{ride.finalFare || ride.estimatedFare || '0.00'}
                     </div>
                   </div>
                 </div>

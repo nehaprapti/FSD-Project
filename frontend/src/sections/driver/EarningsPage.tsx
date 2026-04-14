@@ -14,7 +14,7 @@ export const EarningsPage = () => (
     </div>
     <GlassCard className="mb-8 text-center py-8">
       <div className="text-white/50 mb-2">Total Earnings Today</div>
-      <div className="text-5xl font-bold text-primary">$124.50</div>
+      <div className="text-5xl font-bold text-primary">₹124.50</div>
       <div className="text-sm text-green-400 mt-2">+12% from yesterday</div>
     </GlassCard>
     <h3 className="font-bold mb-4">Ride History</h3>
@@ -27,7 +27,7 @@ export const EarningsPage = () => (
           </div>
           <div className="text-right">
             <div className="font-bold text-primary">
-              ${(15 + i * 4.5).toFixed(2)}
+              ₹{(15 + i * 4.5).toFixed(2)}
             </div>
             <div className="text-xs text-white/50">Card</div>
           </div>

@@ -29,7 +29,7 @@ export const AdminDashboard = ({ user }: { user: any }) => {
         {[
           { label: 'Total Users', value: stats?.totalUsers || '0', change: '+0%' },
           { label: 'Active Rides', value: stats?.ongoingRides || '0', change: '+0%' },
-          { label: 'Revenue (Total)', value: `$${stats?.totalRevenue || '0'}`, change: '+0%' },
+          { label: 'Revenue (Total)', value: `₹${stats?.totalRevenue || '0'}`, change: '+0%' },
           { label: 'Drivers Online', value: stats?.activeDriversNow || '0', change: '+0%' }
         ].map((kpi, i) => (
           <GlassCard key={i}>

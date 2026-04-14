@@ -194,7 +194,7 @@ export const PassengerModule = () => {
           </ScreenTransition>
         </div>
 
-        <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
+        <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-80px flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
           {(
             [
               { id: "dashboard", icon: Home as IconComp, label: "Home" },
@@ -347,14 +347,14 @@ const BookRide = ({ setScreen }: any) => {
               {
                 icon: Car as IconComp,
                 name: "Mini",
-                price: "$12",
+                price: "₹12",
                 time: "3 min",
                 selected: true,
               },
               {
                 icon: Truck as IconComp,
                 name: "SUV",
-                price: "$18",
+                price: "₹18",
                 time: "6 min",
               },
             ] as Array<{
@@ -369,7 +369,7 @@ const BookRide = ({ setScreen }: any) => {
             return (
               <div
                 key={i}
-                className={`min-w-[100px] p-4 rounded-2xl border snap-center cursor-pointer transition-colors ${v.selected ? "bg-primary/10 border-primary" : "bg-white/5 border-white/10"}`}
+                className={`min-w-100px p-4 rounded-2xl border snap-center cursor-pointer transition-colors ${v.selected ? "bg-primary/10 border-primary" : "bg-white/5 border-white/10"}`}
               >
                 <VehicleIcon
                   className={`mb-2 ${v.selected ? "text-primary" : "text-white/50"}`}
@@ -564,7 +564,7 @@ const RideHistory = () => {
               <div className="text-sm truncate mb-3"><span className="text-white/40">To:</span> {ride.drop?.address}</div>
               <div className="flex justify-between items-center border-t border-white/5 pt-3">
                  <div className="text-xs text-white/50">{ride.driverId ? `Driver: ${ride.driverId.name}` : 'No driver'}</div>
-                 <div className="text-right font-black text-lg text-primary">${ride.finalFare || ride.estimatedFare || 0}</div>
+                  <div className="text-right font-black text-lg text-primary">₹{ride.finalFare || ride.estimatedFare || 0}</div>
               </div>
             </GlassCard>
           ))

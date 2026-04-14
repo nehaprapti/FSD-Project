@@ -15,7 +15,7 @@ export const RideRequestPopup = ({ onAccept, onReject, data }: any) => {
 
   const pAddress = data?.pickup?.address || '123 Main St';
   const dAddress = data?.drop?.address || 'Terminal 1';
-  const fare = data?.estimatedFare ? `$${data.estimatedFare.toFixed(2)}` : '$--.--';
+  const fare = data?.estimatedFare ? `₹${data.estimatedFare.toFixed(2)}` : '₹--.--';
 
   return (
     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
