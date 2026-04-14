@@ -2,21 +2,55 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard, Button } from '../../components/UI';
 import { DollarSign, CheckCircle, Clock, FileText, Navigation, AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
 import * as driverApi from '../../api/driver';
+import { socketService } from '../../api/socket';
+import { getRideHistory } from '../../api/rides';
 
 export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  const [earnings, setEarnings] = useState<any>(null);
+  const [rides, setRides] = useState<any[]>([]);
 
   useEffect(() => {
-    driverApi
-      .getProfile()
-      .then((res) => {
-        setProfile(res.data);
-        setIsOnline(res.data?.availabilityStatus || false);
-      })
-      .finally(() => setLoading(false));
+    Promise.all([
+      driverApi.getProfile(),
+      driverApi.getEarningsSummary('today').catch(() => null), // fail gracefully
+      getRideHistory().catch(() => ({ data: { data: [] } }))
+    ])
+    .then(([profileRes, earningsData, ridesRes]) => {
+      setProfile(profileRes.data);
+      setIsOnline(profileRes.data?.availabilityStatus || false);
+      setEarnings(earningsData);
+      setRides((ridesRes.data?.data || []).slice(0, 4));
+    })
+    .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (loading) return; // Prevent overwriting DB with false on mount before fetching!
+
+    socketService.emit('driver:availability', { online: isOnline });
+
+    let watchId: number;
+    if (isOnline) {
+      if ('geolocation' in navigator) {
+        watchId = navigator.geolocation.watchPosition((position) => {
+          socketService.emit('driver:location_update', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speed: position.coords.speed,
+            heading: position.coords.heading
+          });
+        }, (err) => console.error(err), {
+          enableHighAccuracy: true,
+        });
+      }
+    }
+    return () => {
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isOnline, loading]);
 
   const toggleAvailability = async () => {
     if (profile?.verificationStatus !== "approved") {
@@ -145,14 +179,14 @@ export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
                 <DollarSign size={20} />
               </div>
-              <div className="text-3xl font-black text-white">$124.50</div>
+              <div className="text-3xl font-black text-white">${earnings?.totalAmount?.toFixed(2) || "0.00"}</div>
               <div className="text-xs text-white/40 uppercase font-black tracking-widest mt-1">Today's Earnings</div>
             </GlassCard>
             <GlassCard className="hover:border-primary/30 transition-colors group">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
                 <CheckCircle size={20} />
               </div>
-              <div className="text-3xl font-black text-white">12</div>
+              <div className="text-3xl font-black text-white">{earnings?.totalTrips || 0}</div>
               <div className="text-xs text-white/40 uppercase font-black tracking-widest mt-1">Trips Completed</div>
             </GlassCard>
           </div>
@@ -196,19 +230,27 @@ export const DriverDashboard = ({ setScreen, setShowRequest, user }: any) => {
           <div className="space-y-4">
             <h3 className="font-bold text-sm uppercase tracking-widest text-white/50 px-1">Live Feed</h3>
             <div className="space-y-3">
-              {[1, 2].map((i) => (
+              {rides.length === 0 ? (
+                <div className="text-sm text-white/30 italic px-2">No recent rides tracked.</div>
+              ) : rides.map((ride, i) => (
                 <div key={i} className="group p-4 bg-white/2 hover:bg-white/5 rounded-3xl border border-white/5 transition-all flex justify-between items-center">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-primary group-hover:rotate-12 transition-transform">
                       <Navigation size={20} />
                     </div>
-                    <div>
-                      <div className="text-sm font-bold">Sector 5 → Airport</div>
-                      <div className="text-[10px] text-white/30 uppercase tracking-tighter">Completed • 0h 45m</div>
+                    <div className="overflow-hidden w-full max-w-[120px] sm:max-w-[150px]">
+                      <div className="text-sm font-bold truncate" title={`${ride.pickup?.address} → ${ride.drop?.address}`}>
+                        {ride.pickup?.address?.split(',')[0]} → {ride.drop?.address?.split(',')[0]}
+                      </div>
+                      <div className="text-[10px] text-white/30 uppercase tracking-tighter truncate">
+                        {ride.status.replace(/_/g, ' ')} • {new Date(ride.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-black text-green-400">+$32.40</div>
+                  <div className="text-right shrink-0 pl-2">
+                    <div className="text-sm font-black text-green-400">
+                      ${ride.finalFare || ride.estimatedFare || '0.00'}
+                    </div>
                   </div>
                 </div>
               ))}

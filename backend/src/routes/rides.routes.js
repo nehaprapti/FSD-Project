@@ -5,7 +5,8 @@ import {
   getRide,
   updateRideStatus,
   cancelRideById,
-  getSharedGroup
+  getSharedGroup,
+  getUserRidesController
 } from "../controllers/rides.controller.js";
 import { authCheck } from "../middlewares/auth.js";
 import { roleGuard } from "../middlewares/roleGuard.js";
@@ -17,6 +18,7 @@ router.post("/estimate", validateRequired(["pickup", "drop", "rideType"]), estim
 router.use(authCheck);
 router.post("/book", roleGuard("passenger"), validateRequired(["pickup", "drop", "rideType"]), bookRideController);
 router.get("/shared/:groupId", getSharedGroup);
+router.get("/history", getUserRidesController);
 router.get("/:rideId", getRide);
 
 // Aliases and mock endpoints for tests

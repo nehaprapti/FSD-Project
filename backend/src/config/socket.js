@@ -12,6 +12,10 @@ const getAllowedOrigins = () => {
 };
 
 export const initSocket = (httpServer) => {
+  if (httpServer.__io_instance) {
+    return httpServer.__io_instance;
+  }
+
   // Ensure requests aimed at '/api/socket.io' are rewritten to '/socket.io'
   // before engine.io/socket.io handles them. This allows clients that use
   // the API base path (e.g. 'http://host:port/api') to connect without
@@ -52,6 +56,8 @@ export const initSocket = (httpServer) => {
       methods: ["GET", "POST", "PATCH", "DELETE"]
     }
   });
+
+  httpServer.__io_instance = io;
 
   setSocketServer(io);
   registerSocketHandlers(io);

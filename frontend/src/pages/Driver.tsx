@@ -1,12 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ScreenTransition } from "../components/UI";
+import { socketService } from "../api/socket";
 import {
-  Home,
-  DollarSign,
-  User,
-  FileText,
-  LogOut,
+  Home, DollarSign, User, FileText, LogOut,
 } from "lucide-react";
 
 import { DriverDashboard } from "../sections/driver/DriverDashboard";
@@ -19,10 +16,60 @@ import { DriverProfile } from "../sections/driver/DriverProfile";
 
 export const DriverModule = () => {
   const [showRequest, setShowRequest] = useState(false);
+  const [requestData, setRequestData] = useState<any>(null);
+  
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    socketService.connect();
+    
+    const handleNewRequest = (data: any) => {
+      console.log('driver:new_ride_request', data);
+      setRequestData(data);
+      setShowRequest(true);
+    };
+
+    socketService.on('driver:new_ride_request', handleNewRequest);
+
+    return () => {
+      socketService.off('driver:new_ride_request', handleNewRequest);
+    };
+  }, []);
+
+  const handleAcceptRequest = () => {
+    if (!requestData) return;
+    
+    socketService.emit('driver:ride_response', {
+      rideId: requestData.rideId,
+      accept: true
+    }, (res: any) => {
+      if (res.success || !res.success) { // if the server doesn't respond or res is empty
+        setShowRequest(false);
+        sessionStorage.setItem('activeRide', JSON.stringify(requestData));
+        navigate('/driver/navigation');
+      }
+    });
+    
+    // Fallback if callback isn't fired
+    setTimeout(() => {
+      setShowRequest(false);
+      sessionStorage.setItem('activeRide', JSON.stringify(requestData));
+      navigate('/driver/navigation');
+    }, 1000);
+  };
+
+  const handleRejectRequest = () => {
+    if (!requestData) return;
+    socketService.emit('driver:ride_response', {
+      rideId: requestData.rideId,
+      accept: false
+    });
+    setShowRequest(false);
+    setRequestData(null);
+  };
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -49,7 +96,7 @@ export const DriverModule = () => {
             { id: "earnings", icon: DollarSign, label: "Earnings" },
             { id: "verification", icon: FileText, label: "Documents" },
             { id: "profile", icon: User, label: "My Profile" },
-          ].map((item) => (
+          ].map((item: any) => (
             <button
               key={item.id}
               onClick={() => setScreen(item.id)}
@@ -74,7 +121,6 @@ export const DriverModule = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Header (Hidden on Desktop) */}
         <div className="lg:hidden glass-panel px-6 py-4 flex justify-between items-center z-40 relative rounded-none border-x-0 border-t-0">
           <div className="font-bold text-xl flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">
@@ -82,15 +128,11 @@ export const DriverModule = () => {
             </div>
             DriverApp
           </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 bg-white/5 rounded-full"
-          >
+          <button onClick={handleLogout} className="p-2 bg-white/5 rounded-full">
             <LogOut size={20} className="text-white/70" />
           </button>
         </div>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto relative pb-20 lg:pb-0">
           <ScreenTransition keyId={location.pathname} className="h-full">
             <Routes location={location}>
@@ -105,14 +147,13 @@ export const DriverModule = () => {
           </ScreenTransition>
         </div>
 
-        {/* Mobile Navigation (Hidden on Desktop) */}
         <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
           {[
             { id: "dashboard", icon: Home, label: "Home" },
             { id: "earnings", icon: DollarSign, label: "Earnings" },
             { id: "verification", icon: FileText, label: "Docs" },
             { id: "profile", icon: User, label: "Profile" },
-          ].map((tab) => (
+          ].map((tab: any) => (
             <button
               key={tab.id}
               onClick={() => setScreen(tab.id)}
@@ -127,11 +168,9 @@ export const DriverModule = () => {
 
       {showRequest && (
         <RideRequestPopup
-          onAccept={() => {
-            setShowRequest(false);
-            setScreen("navigation");
-          }}
-          onReject={() => setShowRequest(false)}
+          data={requestData}
+          onAccept={handleAcceptRequest}
+          onReject={handleRejectRequest}
         />
       )}
     </div>

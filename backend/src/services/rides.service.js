@@ -892,3 +892,8 @@ export const cancelRide = async (rideId, options = {}) => {
     actorUserId: options.actorUserId
   });
 };
+
+export const getUserRides = async (userId, role) => {
+  const query = role === "driver" ? { driverId: userId } : { passengerId: userId };
+  return Ride.find(query).sort({ createdAt: -1 }).populate("driverId", "name phone").lean();
+};

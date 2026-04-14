@@ -1,8 +1,16 @@
-import React, { useState, useRef } from "react";
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { useLoadScript, Autocomplete } from '@react-google-maps/api';
+import React, { useState, useRef, useEffect, ChangeEvent } from "react";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+import { GeocodingAutocomplete } from "../components/GeocodingAutocomplete";
+import { socketService } from "../api/socket";
+import { bookRide, getRideHistory } from "../api/rides";
 
-const libraries: "places"[] = ["places"];
+type IconComp = React.ElementType;
 
 import {
   ScreenTransition,
@@ -25,60 +33,97 @@ import {
   Star,
   Navigation,
   CreditCard,
-  Tag,
   ChevronRight,
-  Menu,
-  MapPin as MapPinIcon,
   Car,
   Bike,
   Truck,
   ArrowRight,
   LogOut,
+  MapPin as MapPinIcon,
 } from "lucide-react";
 
 export const PassengerModule = () => {
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
-  
   const navigate = useNavigate();
   const location = useLocation();
 
+  useEffect(() => {
+    socketService.connect();
+
+    const handleRideStatus = (data: any) => {
+      console.log("passenger:ride_status", data);
+      if (data.status === "searching_driver") navigate("/passenger/searching");
+      else if (data.status === "driver_assigned")
+        navigate("/passenger/tracking");
+      else if (data.status === "trip_started") navigate("/passenger/active");
+      else if (data.status === "trip_completed")
+        navigate("/passenger/completion");
+      else if (data.status === "no_driver_found") {
+        alert("No driver found near you.");
+        navigate("/passenger/book");
+      }
+    };
+
+    const handleDriverAssigned = (data: any) => {
+      sessionStorage.setItem("activeDriver", JSON.stringify(data.driver));
+    };
+
+    socketService.on("passenger:ride_status", handleRideStatus);
+    socketService.on("passenger:driver_assigned", handleDriverAssigned);
+
+    return () => {
+      socketService.off("passenger:ride_status", handleRideStatus);
+      socketService.off("passenger:driver_assigned", handleDriverAssigned);
+    };
+  }, [navigate]);
+
   const handleLogout = () => {
     sessionStorage.clear();
-    window.location.href = '/login';
+    socketService.disconnect();
+    window.location.href = "/login";
   };
 
   const setScreen = (path: string) => navigate(`/passenger/${path}`);
-  const currentScreen = location.pathname.split('/').pop() || 'dashboard';
+  const currentScreen = location.pathname.split("/").pop() || "dashboard";
 
   return (
     <div className="flex bg-dark h-screen overflow-hidden text-white relative">
-      {/* Desktop Sidebar */}
       <div className="hidden lg:flex w-72 h-full glass-panel border-y-0 border-l-0 rounded-none flex-col z-50">
         <div className="p-8 border-b border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-black font-bold shadow-[0_0_20px_rgba(255,214,0,0.4)]">R</div>
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-black font-bold shadow-[0_0_20px_rgba(255,214,0,0.4)]">
+            R
+          </div>
           <span className="text-xl font-black tracking-tight">RideApp</span>
         </div>
-        
+
         <div className="flex-1 py-10 px-4 flex flex-col gap-3">
-          {[
-            { id: 'dashboard', icon: Home, label: 'Home' },
-            { id: 'book', icon: MapIcon, label: 'Book Ride' },
-            { id: 'history', icon: Clock, label: 'My Trips' },
-            { id: 'profile', icon: User, label: 'My Account' }
-          ].map(item => (
-            <button 
-              key={item.id} 
-              onClick={() => setScreen(item.id)}
-              className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${currentScreen === item.id || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && item.id === "book") || (item.id === "dashboard" && currentScreen === "") ? 'bg-primary text-black font-bold shadow-lg' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
-            >
-              <item.icon size={22} strokeWidth={currentScreen === item.id ? 2.5 : 2} />
-              <span className="text-sm">{item.label}</span>
-            </button>
-          ))}
+          {(
+            [
+              { id: "dashboard", icon: Home as IconComp, label: "Home" },
+              { id: "book", icon: MapIcon as IconComp, label: "Book Ride" },
+              { id: "history", icon: Clock as IconComp, label: "My Trips" },
+              { id: "profile", icon: User as IconComp, label: "My Account" },
+            ] as Array<{ id: string; icon: IconComp; label: string }>
+          ).map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setScreen(item.id)}
+                className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${currentScreen === item.id || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && item.id === "book") || (item.id === "dashboard" && currentScreen === "") ? "bg-primary text-black font-bold shadow-lg" : "text-white/50 hover:bg-white/5 hover:text-white"}`}
+              >
+                <Icon
+                  size={22}
+                  strokeWidth={currentScreen === item.id ? 2.5 : 2}
+                />
+                <span className="text-sm">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="p-4 border-t border-white/10">
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-4 p-4 rounded-2xl text-red-400 hover:bg-red-500/10 transition-all font-bold"
           >
@@ -88,53 +133,88 @@ export const PassengerModule = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Header */}
         <div className="lg:hidden glass-panel px-6 py-4 flex justify-between items-center z-40 relative rounded-none border-x-0 border-t-0">
           <div className="font-bold text-xl flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">R</div>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-black">
+              R
+            </div>
             RideApp
           </div>
-          <button onClick={handleLogout} className="p-2 bg-white/5 rounded-full">
+          <button
+            onClick={handleLogout}
+            className="p-2 bg-white/5 rounded-full"
+          >
             <LogOut size={20} className="text-white/70" />
           </button>
         </div>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto relative pb-20 lg:pb-0">
           <ScreenTransition keyId={location.pathname} className="h-full">
             <Routes location={location}>
-              <Route path="dashboard" element={<PassengerDashboard setScreen={setScreen} user={user} />} />
+              <Route
+                path="dashboard"
+                element={
+                  <PassengerDashboard setScreen={setScreen} user={user} />
+                }
+              />
               <Route path="book" element={<BookRide setScreen={setScreen} />} />
-              <Route path="searching" element={<SearchingDriver setScreen={setScreen} />} />
-              <Route path="tracking" element={<RideTracking setScreen={setScreen} />} />
-              <Route path="active" element={<RideActive setScreen={setScreen} />} />
-              <Route path="completion" element={<RideCompletion setScreen={setScreen} />} />
-              <Route path="history" element={<RideHistory setScreen={setScreen} />} />
-              <Route path="profile" element={<PassengerProfile setScreen={setScreen} user={user} handleLogout={handleLogout} />} />
+              <Route
+                path="searching"
+                element={<SearchingDriver setScreen={setScreen} />}
+              />
+              <Route
+                path="tracking"
+                element={<RideTracking setScreen={setScreen} />}
+              />
+              <Route
+                path="active"
+                element={<RideActive setScreen={setScreen} />}
+              />
+              <Route
+                path="completion"
+                element={<RideCompletion setScreen={setScreen} />}
+              />
+              <Route
+                path="history"
+                element={<RideHistory setScreen={setScreen} />}
+              />
+              <Route
+                path="profile"
+                element={
+                  <PassengerProfile
+                    setScreen={setScreen}
+                    user={user}
+                    handleLogout={handleLogout}
+                  />
+                }
+              />
               <Route path="" element={<Navigate to="dashboard" replace />} />
             </Routes>
           </ScreenTransition>
         </div>
 
-        {/* Mobile Navigation (Hidden on Desktop) */}
         <div className="lg:hidden glass-panel absolute bottom-0 left-0 right-0 h-[80px] flex justify-around items-center px-6 z-40 rounded-none border-x-0 border-b-0 pb-safe">
-          {[
-            { id: "dashboard", icon: Home, label: "Home" },
-            { id: "book", icon: MapIcon, label: "Book" },
-            { id: "history", icon: Clock, label: "Trips" },
-            { id: "profile", icon: User, label: "Profile" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setScreen(tab.id)}
-              className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentScreen === tab.id || (tab.id === 'dashboard' && currentScreen === '') || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && tab.id === "book") ? "text-primary" : "text-white/50"}`}
-            >
-              <tab.icon size={24} />
-              <span className="text-[10px] font-medium">{tab.label}</span>
-            </button>
-          ))}
+          {(
+            [
+              { id: "dashboard", icon: Home as IconComp, label: "Home" },
+              { id: "book", icon: MapIcon as IconComp, label: "Book" },
+              { id: "history", icon: Clock as IconComp, label: "Trips" },
+              { id: "profile", icon: User as IconComp, label: "Profile" },
+            ] as Array<{ id: string; icon: IconComp; label: string }>
+          ).map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setScreen(tab.id)}
+                className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentScreen === tab.id || (tab.id === "dashboard" && currentScreen === "") || (currentScreen !== "dashboard" && currentScreen !== "history" && currentScreen !== "profile" && currentScreen !== "" && tab.id === "book") ? "text-primary" : "text-white/50"}`}
+              >
+                <Icon size={24} />
+                <span className="text-[10px] font-medium">{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -150,29 +230,6 @@ const PassengerDashboard = ({ setScreen, user }: any) => (
         </h1>
         <p className="text-white/50">Where are we going today?</p>
       </div>
-      <div className="hidden md:flex gap-4">
-        {[
-          { label: "Rides", value: "42" },
-          { label: "Rating", value: "4.9" },
-        ].map((stat, i) => (
-          <div key={i} className="text-right">
-            <div className="text-white/30 text-xs uppercase font-bold">{stat.label}</div>
-            <div className="text-xl font-bold text-primary">{stat.value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-    <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x">
-      {[
-        { label: "Total Rides", value: "42" },
-        { label: "Distance", value: "340 km" },
-        { label: "Spent", value: "$450" },
-      ].map((stat, i) => (
-        <GlassCard key={i} className="min-w-[140px] snap-center">
-          <div className="text-white/50 text-sm mb-1">{stat.label}</div>
-          <div className="text-2xl font-bold text-primary">{stat.value}</div>
-        </GlassCard>
-      ))}
     </div>
     <GlassCard
       className="mb-8 bg-linear-to-br from-primary/20 to-transparent border-primary/30 cursor-pointer"
@@ -190,329 +247,337 @@ const PassengerDashboard = ({ setScreen, user }: any) => (
         </div>
       </div>
     </GlassCard>
-    <h3 className="font-bold mb-4">Recent Rides</h3>
-    <div className="flex flex-col gap-4">
-      {[1, 2].map((i) => (
-        <GlassCard
-          key={i}
-          className="flex justify-between items-center cursor-pointer"
-          onClick={() => setScreen("history")}
-        >
+  </div>
+);
+
+const BookRide = ({ setScreen }: any) => {
+  const [pickup, setPickup] = useState<any>(null);
+  const [drop, setDrop] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
+  const [route, setRoute] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]),
+        () => console.warn('Geolocation blocked or unavailable.'),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pickup && pickup.lat && pickup.lng && drop && drop.lat && drop.lng) {
+      // Calculate route
+      fetch(`https://router.project-osrm.org/route/v1/driving/${pickup.lng},${pickup.lat};${drop.lng},${drop.lat}?overview=full&geometries=geojson`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.routes && data.routes.length > 0) {
+            const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+            setRoute(coords);
+          }
+        })
+        .catch(err => console.error(err));
+    } else {
+      setRoute([]);
+      if (pickup && pickup.lat && pickup.lng) setMapCenter([pickup.lat, pickup.lng]);
+      else if (drop && drop.lat && drop.lng) setMapCenter([drop.lat, drop.lng]);
+    }
+  }, [pickup, drop]);
+
+  const handleBook = async () => {
+    if (!pickup || !drop) {
+      alert("Please select both Pickup and Dropoff locations.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await bookRide({
+        pickup: {
+          address: pickup.address,
+          location: { type: "Point", coordinates: [pickup.lng, pickup.lat] },
+        },
+        drop: {
+          address: drop.address,
+          location: { type: "Point", coordinates: [drop.lng, drop.lat] },
+        },
+        rideType: "solo",
+      });
+      setScreen("searching");
+    } catch (e: any) {
+      console.error(e);
+      alert(e.response?.data?.message || "Failed to book ride");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markers = [];
+  if (pickup && pickup.lat && pickup.lng) markers.push({ position: [pickup.lat, pickup.lng], color: '#E6C200' });
+  if (drop && drop.lat && drop.lng) markers.push({ position: [drop.lat, drop.lng], color: '#ef4444' });
+
+  return (
+    <MapBackground center={mapCenter} markers={markers} route={route}>
+      <div className="absolute top-6 left-6 right-6 z-1000 space-y-3">
+        <div className="p-4 rounded-2xl bg-black/80 backdrop-blur-3xl border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+            <GeocodingAutocomplete
+              placeholder="Current Location"
+              onChange={setPickup}
+              className="bg-transparent border-b border-white/10 w-full pb-2 focus:outline-none focus:border-primary text-sm text-white placeholder-white/50"
+            />
+          </div>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-              <MapPin size={20} />
+            <div className="w-2 h-2 rounded-sm bg-red-500 shrink-0" />
+            <GeocodingAutocomplete
+              placeholder="Where to?"
+              onChange={setDrop}
+              className="bg-transparent border-b border-white/10 w-full pb-2 focus:outline-none focus:border-primary text-sm text-white placeholder-white/50"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 glass-panel rounded-t-3xl p-6 z-1000 animate-in slide-in-from-bottom duration-300">
+        <h3 className="font-bold mb-4">Select Vehicle</h3>
+        <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x">
+          {(
+            [
+              {
+                icon: Car as IconComp,
+                name: "Mini",
+                price: "$12",
+                time: "3 min",
+                selected: true,
+              },
+              {
+                icon: Truck as IconComp,
+                name: "SUV",
+                price: "$18",
+                time: "6 min",
+              },
+            ] as Array<{
+              icon: IconComp;
+              name: string;
+              price: string;
+              time: string;
+              selected?: boolean;
+            }>
+          ).map((v, i) => {
+            const VehicleIcon = v.icon;
+            return (
+              <div
+                key={i}
+                className={`min-w-[100px] p-4 rounded-2xl border snap-center cursor-pointer transition-colors ${v.selected ? "bg-primary/10 border-primary" : "bg-white/5 border-white/10"}`}
+              >
+                <VehicleIcon
+                  className={`mb-2 ${v.selected ? "text-primary" : "text-white/50"}`}
+                />
+                <div className="font-bold">{v.name}</div>
+                <div className="text-sm text-white/70">{v.price}</div>
+                <div className="text-xs text-white/40 mt-1">{v.time}</div>
+              </div>
+            );
+          })}
+        </div>
+        <Button
+          className="w-full"
+          onClick={handleBook}
+          disabled={loading || !pickup || !drop}
+        >
+          {loading ? "Booking..." : "Confirm Ride"}
+        </Button>
+      </div>
+    </MapBackground>
+  );
+};
+
+const SearchingDriver = ({ setScreen }: any) => {
+  return (
+    <MapBackground>
+      <div className="absolute inset-0 flex items-center justify-center z-1000">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-32 h-32 border-2 border-primary rounded-full animate-pulse-ring" />
+          <div
+            className="absolute w-32 h-32 border-2 border-primary rounded-full animate-pulse-ring"
+            style={{ animationDelay: "0.5s" }}
+          />
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,214,0,0.5)]">
+            <Search className="text-black" size={24} />
+          </div>
+        </div>
+      </div>
+      <div className="absolute bottom-12 left-6 right-6 z-1000 text-center">
+        <h2 className="text-xl font-bold mb-2">Finding your driver...</h2>
+        <p className="text-white/50 mb-8">
+          Connecting you to the nearest available driver
+        </p>
+        <Button
+          variant="danger"
+          className="w-full"
+          onClick={() => setScreen("book")}
+        >
+          Cancel Request
+        </Button>
+      </div>
+    </MapBackground>
+  );
+};
+
+const RideTracking = ({ setScreen }: any) => {
+  const driverStr = sessionStorage.getItem("activeDriver");
+  const driver = driverStr
+    ? JSON.parse(driverStr)
+    : {
+        name: "Driver",
+        vehicleInfo: { model: "Car", plateNumber: "..." },
+        averageRating: 5,
+      };
+
+  return (
+    <MapBackground>
+      <div className="absolute top-[30%] left-[40%] w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg z-10">
+        <Car className="text-black" />
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 glass-panel rounded-t-3xl p-6 z-1000">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex gap-4">
+            <div className="w-14 h-14 bg-gray-600 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-white">
+              {driver.name?.[0] || "D"}
             </div>
             <div>
-              <div className="font-medium">Downtown → Airport</div>
-              <div className="text-xs text-white/50">Yesterday, 10:30 AM</div>
+              <h3 className="font-bold text-lg">{driver.name}</h3>
+              <div className="flex items-center gap-1 text-sm text-primary">
+                <Star size={14} fill="currentColor" />{" "}
+                {parseFloat(driver.averageRating).toFixed(1) || 5.0}
+              </div>
+              <div className="text-sm text-white/50 mt-1">
+                {driver.vehicleInfo?.model} • {driver.vehicleInfo?.plateNumber}
+              </div>
             </div>
           </div>
           <div className="text-right">
-            <div className="font-bold">$24.50</div>
-            <div className="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-full mt-1">
-              Completed
-            </div>
-          </div>
-        </GlassCard>
-      ))}
-    </div>
-  </div>
-);
-
-const BookRide = ({ setScreen }: any) => (
-  <MapBackground>
-    <div className="absolute top-6 left-6 right-6 z-10">
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-2 h-2 rounded-full bg-primary" />
-          <input
-            className="bg-transparent border-b border-white/10 w-full pb-2 focus:outline-none focus:border-primary"
-            placeholder="Current Location"
-            defaultValue="123 Main St"
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="w-2 h-2 rounded-sm bg-red-500" />
-          <input
-            className="bg-transparent border-b border-white/10 w-full pb-2 focus:outline-none focus:border-primary"
-            placeholder="Where to?"
-            autoFocus
-          />
-        </div>
-      </GlassCard>
-    </div>
-    <div className="absolute bottom-0 left-0 right-0 glass-panel rounded-t-3xl p-6 z-10 animate-in slide-in-from-bottom duration-300">
-      <h3 className="font-bold mb-4">Select Vehicle</h3>
-      <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x">
-        {[
-          { icon: Bike, name: "Bike", price: "$5", time: "2 min" },
-          { icon: Car, name: "Auto", price: "$8", time: "4 min" },
-          {
-            icon: Car,
-            name: "Mini",
-            price: "$12",
-            time: "3 min",
-            selected: true,
-          },
-          { icon: Truck, name: "SUV", price: "$18", time: "6 min" },
-        ].map((v, i) => (
-          <div
-            key={i}
-            className={`min-w-[100px] p-4 rounded-2xl border snap-center cursor-pointer transition-colors ${v.selected ? "bg-primary/10 border-primary" : "bg-white/5 border-white/10"}`}
-          >
-            <v.icon
-              className={`mb-2 ${v.selected ? "text-primary" : "text-white/50"}`}
-            />
-            <div className="font-bold">{v.name}</div>
-            <div className="text-sm text-white/70">{v.price}</div>
-            <div className="text-xs text-white/40 mt-1">{v.time}</div>
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2 text-sm">
-          <CreditCard size={16} className="text-primary" />
-          <span>Card ending in 4242</span>
-        </div>
-        <div className="text-2xl font-bold text-primary">$12.00</div>
-      </div>
-      <Button className="w-full" onClick={() => setScreen("searching")}>
-        Confirm Ride
-      </Button>
-    </div>
-  </MapBackground>
-);
-
-const SearchingDriver = ({ setScreen }: any) => (
-  <MapBackground>
-    <div className="absolute inset-0 flex items-center justify-center z-10">
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-32 h-32 border-2 border-primary rounded-full animate-pulse-ring" />
-        <div
-          className="absolute w-32 h-32 border-2 border-primary rounded-full animate-pulse-ring"
-          style={{ animationDelay: "0.5s" }}
-        />
-        <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,214,0,0.5)]">
-          <Search className="text-black" size={24} />
-        </div>
-      </div>
-    </div>
-    <div className="absolute bottom-12 left-6 right-6 z-10 text-center">
-      <h2 className="text-xl font-bold mb-2">Finding your driver...</h2>
-      <p className="text-white/50 mb-8">
-        Connecting you to the nearest available driver
-      </p>
-      <Button
-        variant="danger"
-        className="w-full"
-        onClick={() => setScreen("book")}
-      >
-        Cancel Request
-      </Button>
-    </div>
-    {/* Auto-transition for demo */}
-    {setTimeout(() => setScreen("tracking"), 3000) && null}
-  </MapBackground>
-);
-
-const RideTracking = ({ setScreen }: any) => (
-  <MapBackground>
-    <div className="absolute top-[30%] left-[40%] w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg z-10">
-      <Car className="text-black" />
-    </div>
-    <div className="absolute bottom-0 left-0 right-0 glass-panel rounded-t-3xl p-6 z-10">
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex gap-4">
-          <div className="w-14 h-14 bg-gray-600 rounded-full overflow-hidden">
-            <img
-              src="https://picsum.photos/seed/driver/100/100"
-              alt="Driver"
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">Michael D.</h3>
-            <div className="flex items-center gap-1 text-sm text-primary">
-              <Star size={14} fill="currentColor" /> 4.9
-            </div>
-            <div className="text-sm text-white/50 mt-1">
-              Toyota Prius • ABC 1234
-            </div>
+            <div className="text-2xl font-bold text-primary">Map</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold">3 min</div>
-          <div className="text-sm text-white/50">away</div>
+        <div className="flex gap-3 mb-6">
+          <Button variant="outline" className="flex-1 text-sm">
+            <Phone size={14} /> Call
+          </Button>
+          <Button variant="outline" className="flex-1 text-sm">
+            <MessageSquare size={14} /> Chat
+          </Button>
+          <Button variant="danger" className="px-4">
+            <AlertOctagon size={14} />
+          </Button>
         </div>
       </div>
-      <div className="flex gap-3 mb-6">
-        <Button variant="outline" className="flex-1">
-          <Phone size={18} /> Call
-        </Button>
-        <Button variant="outline" className="flex-1">
-          <MessageSquare size={18} /> Chat
-        </Button>
-        <Button variant="danger" className="px-4">
-          <AlertOctagon size={18} />
-        </Button>
-      </div>
-      <Button className="w-full" onClick={() => setScreen("active")}>
-        Simulate Pickup
-      </Button>
-    </div>
-  </MapBackground>
-);
+    </MapBackground>
+  );
+};
 
 const RideActive = ({ setScreen }: any) => (
   <MapBackground>
-    <div className="absolute top-6 left-6 right-6 z-10">
+    <div className="absolute top-6 left-6 right-6 z-1000">
       <GlassCard className="p-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-center flex-1">
-            <div className="w-6 h-6 rounded-full bg-green-500 mx-auto mb-1 flex items-center justify-center">
-              <CheckCircle size={12} className="text-black" />
-            </div>
-            <div className="text-[10px] text-white/50">Pickup</div>
-          </div>
-          <div className="h-px bg-primary flex-1" />
-          <div className="text-center flex-1">
-            <div className="w-6 h-6 rounded-full bg-primary mx-auto mb-1 flex items-center justify-center shadow-[0_0_10px_rgba(255,214,0,0.5)]">
-              <Navigation size={12} className="text-black" />
-            </div>
-            <div className="text-[10px] text-primary">On Ride</div>
-          </div>
-          <div className="h-px bg-white/20 flex-1" />
-          <div className="text-center flex-1">
-            <div className="w-6 h-6 rounded-full bg-white/20 mx-auto mb-1" />
-            <div className="text-[10px] text-white/50">Drop</div>
-          </div>
-        </div>
         <div className="text-center">
-          <div className="text-3xl font-bold text-primary">12 min</div>
-          <div className="text-sm text-white/50">to destination</div>
+          <div className="text-2xl font-bold text-primary">Ride Active</div>
+          <div className="text-sm text-white/50">Tracking your journey</div>
         </div>
       </GlassCard>
-    </div>
-    <div className="absolute bottom-6 left-6 right-6 z-10">
-      <Button className="w-full" onClick={() => setScreen("completion")}>
-        Simulate Drop-off
-      </Button>
     </div>
   </MapBackground>
 );
 
-const RideCompletion = ({ setScreen }: any) => (
-  <div className="p-6 flex flex-col h-full justify-center">
-    <div className="text-center mb-8">
-      <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle size={48} className="text-green-500" />
-      </div>
-      <h1 className="text-3xl font-bold mb-2">You've Arrived!</h1>
-      <p className="text-white/50">Hope you enjoyed your ride.</p>
-    </div>
-    <GlassCard className="mb-8">
-      <div className="text-center mb-6">
-        <div className="text-4xl font-bold text-primary mb-1">$12.00</div>
-        <div className="text-sm text-white/50">
-          Paid via Card ending in 4242
-        </div>
-      </div>
-      <div className="h-px bg-white/10 w-full mb-6" />
-      <h3 className="text-center font-bold mb-4">Rate your driver</h3>
-      <div className="flex justify-center gap-2 mb-6">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Star
-            key={i}
-            size={32}
-            className="text-primary cursor-pointer"
-            fill={i <= 4 ? "currentColor" : "none"}
-          />
-        ))}
-      </div>
-      <textarea
-        className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-primary focus:outline-none mb-4 resize-none"
-        placeholder="Leave a compliment..."
-        rows={3}
-      />
-      <Button className="w-full" onClick={() => setScreen("dashboard")}>
-        Done
-      </Button>
-    </GlassCard>
-  </div>
-);
+const RideCompletion = ({ setScreen }: any) => {
+  const handleDone = () => {
+    sessionStorage.removeItem("activeDriver");
+    setScreen("dashboard");
+  };
 
-const RideHistory = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-6">Ride History</h1>
-    <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
-      <button className="px-4 py-1.5 rounded-full bg-primary text-black text-sm font-medium whitespace-nowrap">
-        All Rides
-      </button>
-      <button className="px-4 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium whitespace-nowrap">
-        Business
-      </button>
-      <button className="px-4 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium whitespace-nowrap">
-        Personal
-      </button>
+  return (
+    <div className="p-6 flex flex-col h-full justify-center">
+      <div className="text-center mb-8">
+        <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle size={48} className="text-green-500" />
+        </div>
+        <h1 className="text-3xl font-bold mb-2">You've Arrived!</h1>
+        <p className="text-white/50">Hope you enjoyed your ride.</p>
+      </div>
+      <GlassCard className="mb-8">
+        <h3 className="text-center font-bold mb-4">Rate your driver</h3>
+        <div className="flex justify-center gap-2 mb-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Star
+              key={i}
+              size={32}
+              className="text-primary cursor-pointer hover:scale-110"
+              fill={i <= 4 ? "currentColor" : "none"}
+            />
+          ))}
+        </div>
+        <textarea
+          className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-primary focus:outline-none mb-4 resize-none"
+          placeholder="Leave a compliment..."
+          rows={3}
+        />
+        <Button className="w-full" onClick={handleDone}>
+          Done
+        </Button>
+      </GlassCard>
     </div>
-    <div className="flex flex-col gap-4">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <GlassCard key={i}>
-          <div className="flex justify-between items-start mb-4">
-            <div className="text-sm text-white/50">
-              Oct {10 - i}, 2023 • 10:30 AM
+  );
+};
+
+const RideHistory = () => {
+  const [rides, setRides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getRideHistory()
+      .then(res => setRides(res.data.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Ride History</h1>
+      <div className="flex flex-col gap-4 pb-12">
+        {loading ? (
+           <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
+        ) : rides.length === 0 ? (
+          <GlassCard>
+            <div className="flex items-center justify-center text-white/50 text-sm py-4">
+              No recent rides found.
             </div>
-            <div className="font-bold">${(12 + i * 2.5).toFixed(2)}</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <div className="w-0.5 h-6 bg-white/20 my-1" />
-              <div className="w-2 h-2 rounded-sm bg-red-500" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm mb-4">123 Main St, City Center</div>
-              <div className="text-sm">Airport Terminal 1</div>
-            </div>
-          </div>
-        </GlassCard>
-      ))}
+          </GlassCard>
+        ) : (
+          rides.map(ride => (
+            <GlassCard key={ride._id}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-bold text-sm text-white/70">{new Date(ride.createdAt).toLocaleDateString()}</span>
+                <span className={`text-xs font-bold uppercase tracking-widest ${ride.status === 'trip_completed' ? 'text-green-400' : ride.status.includes('cancel') ? 'text-red-400' : 'text-primary'}`}>{ride.status.replace(/_/g, ' ')}</span>
+              </div>
+              <div className="text-sm truncate mb-1"><span className="text-white/40">From:</span> {ride.pickup?.address}</div>
+              <div className="text-sm truncate mb-3"><span className="text-white/40">To:</span> {ride.drop?.address}</div>
+              <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                 <div className="text-xs text-white/50">{ride.driverId ? `Driver: ${ride.driverId.name}` : 'No driver'}</div>
+                 <div className="text-right font-black text-lg text-primary">${ride.finalFare || ride.estimatedFare || 0}</div>
+              </div>
+            </GlassCard>
+          ))
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const PassengerProfile = ({ setScreen, user, handleLogout }: any) => {
-  const [homeLocation, setHomeLocation] = useState("Not set");
-  const [workLocation, setWorkLocation] = useState("Not set");
+  const [homeLocation, setHomeLocation] = useState<any>(null);
+  const [workLocation, setWorkLocation] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery (COD)");
-
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || "",
-    libraries: libraries,
-  });
-
-  const homeAutocompleteRef = useRef<any>(null);
-  const workAutocompleteRef = useRef<any>(null);
-
-  const onHomePlaceChanged = () => {
-    if (homeAutocompleteRef.current) {
-      const place = homeAutocompleteRef.current.getPlace();
-      if (place && place.formatted_address) {
-        setHomeLocation(place.formatted_address);
-      }
-    }
-  };
-
-  const onWorkPlaceChanged = () => {
-    if (workAutocompleteRef.current) {
-      const place = workAutocompleteRef.current.getPlace();
-      if (place && place.formatted_address) {
-        setWorkLocation(place.formatted_address);
-      }
-    }
-  };
 
   return (
     <div className="p-6">
@@ -521,14 +586,16 @@ const PassengerProfile = ({ setScreen, user, handleLogout }: any) => {
           {user?.name?.[0] || "P"}
         </div>
         <h1 className="text-2xl font-bold">{user?.name || "Passenger"}</h1>
-        <p className="text-white/50">{user?.email || "passenger@example.com"}</p>
+        <p className="text-white/50">
+          {user?.email || "passenger@example.com"}
+        </p>
       </div>
-      
+
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">Saved Locations</h2>
-        <Button 
-          variant="outline" 
-          className="text-xs py-1 h-auto" 
+        <Button
+          variant="outline"
+          className="text-xs py-1 h-auto"
           onClick={() => setIsEditing(!isEditing)}
         >
           {isEditing ? "Save" : "Edit"}
@@ -542,30 +609,16 @@ const PassengerProfile = ({ setScreen, user, handleLogout }: any) => {
             <div className="flex-1 w-full overflow-hidden">
               <div className="font-bold cursor-pointer">Home</div>
               {isEditing ? (
-                isLoaded ? (
-                  <Autocomplete 
-                    onLoad={auto => homeAutocompleteRef.current = auto}
-                    onPlaceChanged={onHomePlaceChanged}
-                  >
-                    <input 
-                      type="text" 
-                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
-                      defaultValue={homeLocation === "Not set" ? "" : homeLocation}
-                      placeholder="Enter home address..."
-                      onChange={(e) => setHomeLocation(e.target.value)}
-                    />
-                  </Autocomplete>
-                ) : (
-                  <input 
-                      type="text" 
-                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
-                      value={homeLocation === "Not set" ? "" : homeLocation}
-                      onChange={(e) => setHomeLocation(e.target.value)}
-                      placeholder="Loading maps..."
-                  />
-                )
+                <GeocodingAutocomplete
+                  defaultValue={homeLocation?.address}
+                  onChange={setHomeLocation}
+                  className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                  placeholder="Enter home address..."
+                />
               ) : (
-                <div className="text-sm text-white/50 truncate w-full">{homeLocation}</div>
+                <div className="text-sm text-white/50 truncate w-full">
+                  {homeLocation?.address || "Not set"}
+                </div>
               )}
             </div>
           </div>
@@ -577,56 +630,21 @@ const PassengerProfile = ({ setScreen, user, handleLogout }: any) => {
             <div className="flex-1 w-full overflow-hidden">
               <div className="font-bold cursor-pointer">Work</div>
               {isEditing ? (
-                isLoaded ? (
-                  <Autocomplete 
-                    onLoad={auto => workAutocompleteRef.current = auto}
-                    onPlaceChanged={onWorkPlaceChanged}
-                  >
-                    <input 
-                      type="text" 
-                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
-                      defaultValue={workLocation === "Not set" ? "" : workLocation}
-                      placeholder="Enter work address..."
-                      onChange={(e) => setWorkLocation(e.target.value)}
-                    />
-                  </Autocomplete>
-                ) : (
-                  <input 
-                    type="text" 
-                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
-                    value={workLocation === "Not set" ? "" : workLocation}
-                    onChange={(e) => setWorkLocation(e.target.value)}
-                    placeholder="Loading maps..."
-                  />
-                )
+                <GeocodingAutocomplete
+                  defaultValue={workLocation?.address}
+                  onChange={setWorkLocation}
+                  className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm mt-1 focus:border-primary outline-none"
+                  placeholder="Enter work address..."
+                />
               ) : (
-                <div className="text-sm text-white/50 truncate w-full">{workLocation}</div>
+                <div className="text-sm text-white/50 truncate w-full">
+                  {workLocation?.address || "Not set"}
+                </div>
               )}
             </div>
           </div>
         </div>
       </GlassCard>
-      
-      <h2 className="font-bold text-lg mb-4 mt-6">Preferences</h2>
-      <GlassCard className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CreditCard className="text-primary" />
-            <div>
-              <div className="font-bold">Payment Methods</div>
-              <div className="text-sm text-green-400 font-medium">{paymentMethod}</div>
-            </div>
-          </div>
-          <ChevronRight className="text-white/30 cursor-pointer hover:text-white transition-colors" />
-        </div>
-      </GlassCard>
-      <Button
-        variant="danger"
-        className="w-full"
-        onClick={handleLogout}
-      >
-        Log Out
-      </Button>
     </div>
   );
 };

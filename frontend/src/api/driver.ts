@@ -14,3 +14,8 @@ export const updateAvailability = async (isOnline: boolean) => {
     const response = await axios.patch('/drivers/me/availability', { isOnline });
     return response.data;
 };
+
+export const getEarningsSummary = async (period: string = 'today') => {
+    const response = await axios.get(`/earnings/summary?period=${period}`);
+    return response.data;
+};

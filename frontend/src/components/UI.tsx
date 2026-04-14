@@ -70,10 +70,58 @@ export const ScreenTransition = ({
   </motion.div>
 );
 
-export const MapBackground = ({ children }: { children?: React.ReactNode }) => (
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+const MapUpdater = ({ center, zoom, route }: { center?: [number, number], zoom: number, route?: [number, number][] }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    if (route && route.length > 0) {
+      const bounds = L.latLngBounds(route);
+      map.fitBounds(bounds, { padding: [50, 50], animate: true });
+    } else if (center && center.length === 2 && center[0] !== undefined && center[1] !== undefined) {
+      map.setView(center, map.getZoom(), { animate: true });
+    }
+  }, [center, map, route]);
+  return null;
+};
+
+const createCustomIcon = (color: string) => {
+  return L.divIcon({
+    className: "custom-leaflet-marker",
+    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+};
+
+export const MapBackground = ({ children, center, zoom = 13, markers = [], route = [] }: any) => (
   <div className="absolute inset-0 z-0 bg-dark overflow-hidden">
-    <div className="absolute inset-0 map-grid" />
-    <div className="absolute inset-0 bg-linear-to-t from-dark via-transparent to-transparent opacity-80" />
-    {children}
+    <MapContainer center={center || [51.505, -0.09]} zoom={zoom} style={{ height: "100%", width: "100%", zIndex: 0 }} zoomControl={false}>
+      <TileLayer
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+      />
+      <MapUpdater center={center} zoom={zoom} route={route} />
+      {route && route.length > 0 && (
+        <Polyline positions={route} color="#E6C200" weight={4} opacity={0.8} />
+      )}
+      {markers.map((m: any, i: number) => (
+         m.position && m.position[0] && m.position[1] ? (
+           <Marker 
+             key={i} 
+             position={m.position} 
+             icon={createCustomIcon(m.color || '#E6C200')} 
+           />
+         ) : null
+      ))}
+    </MapContainer>
+    <div className="absolute inset-0 bg-linear-to-t from-dark via-transparent to-transparent opacity-80 pointer-events-none z-1" />
+    <div className="absolute inset-0 z-2 pointer-events-none">
+      <div className="*:pointer-events-auto h-full w-full">
+        {children}
+      </div>
+    </div>
   </div>
 );
